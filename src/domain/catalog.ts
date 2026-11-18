@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto';
-import * as nodePath from 'node:path';
+import { pathApi } from './pathlib';
 import { Catalog, Collection, ICON_MAX, Project, clampGraphemes, emptyCatalog, normalizeHexColor, parseTags } from './model';
 import { pathKey } from './paths';
 
@@ -34,9 +33,9 @@ export function addProject(
     return { catalog, project: existing };
   }
   const base: Project = {
-    id: randomUUID(),
+    id: globalThis.crypto.randomUUID(),
     name: input.name?.trim() || defaultName(input.path),
-    path: nodePath.resolve(input.path),
+    path: pathApi().resolve(input.path),
     tags: [],
     source: input.source ?? 'manual',
     addedAt: now,
@@ -121,7 +120,7 @@ export function saveCollection(
     const collection = withOptional({ ...existing, name }, 'color', color);
     return { catalog: { ...catalog, collections: catalog.collections.map((c) => (c.id === existing.id ? collection : c)) }, collection };
   }
-  const collection = withOptional({ id: randomUUID(), name } as Collection, 'color', color);
+  const collection = withOptional({ id: globalThis.crypto.randomUUID(), name } as Collection, 'color', color);
   return { catalog: { ...catalog, collections: [...catalog.collections, collection] }, collection };
 }
 
@@ -162,7 +161,7 @@ export function mergeDiscovered(catalog: Catalog, paths: readonly string[], now 
       continue;
     }
     known.add(key);
-    added.push({ id: randomUUID(), name: defaultName(path), path: nodePath.resolve(path), tags: [], source: 'discovered', addedAt: now });
+    added.push({ id: globalThis.crypto.randomUUID(), name: defaultName(path), path: pathApi().resolve(path), tags: [], source: 'discovered', addedAt: now });
   }
   return added.length === 0 ? { catalog, added } : { catalog: { ...catalog, projects: [...catalog.projects, ...added] }, added };
 }
@@ -211,7 +210,7 @@ export function sanitizeCatalog(raw: unknown): Catalog {
     }
     seen.add(key);
     let project: Project = {
-      id: typeof p.id === 'string' && p.id ? p.id : randomUUID(),
+      id: typeof p.id === 'string' && p.id ? p.id : globalThis.crypto.randomUUID(),
       name: typeof p.name === 'string' && p.name.trim() ? p.name.trim() : defaultName(p.path),
       path: p.path,
       tags: parseTags(Array.isArray(p.tags) ? p.tags.filter((t: unknown): t is string => typeof t === 'string') : []),
@@ -238,7 +237,7 @@ function applyPatch(project: Project, patch: ProjectPatch, catalog: Catalog): Pr
     next.name = patch.name.trim().slice(0, 80) || next.name;
   }
   if (patch.path !== undefined && patch.path.trim()) {
-    next.path = nodePath.resolve(patch.path.trim());
+    next.path = pathApi().resolve(patch.path.trim());
   }
   if (patch.description !== undefined) {
     next = withOptional(next, 'description', patch.description.trim().slice(0, 300) || undefined);
@@ -263,7 +262,7 @@ function applyPatch(project: Project, patch: ProjectPatch, catalog: Catalog): Pr
 }
 
 function defaultName(path: string): string {
-  const base = nodePath.basename(path.replace(/[\\/]+$/, ''));
+  const base = pathApi().basename(path.replace(/[\\/]+$/, ''));
   return base.replace(/\.code-workspace$/i, '') || path;
 }
 

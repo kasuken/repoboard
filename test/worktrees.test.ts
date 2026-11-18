@@ -8,7 +8,8 @@ import { dropNestedWorktrees, groupWorktrees, mergeDiscovered } from '../src/dom
 import { parseWorktreeList, worktreeMainFromGitFile } from '../src/domain/gitParse';
 import { emptyCatalog } from '../src/domain/model';
 import { pathKey } from '../src/domain/paths';
-import { GitClient, worktreeMainOf } from '../src/services/git';
+import { GitClient, worktreeMainOf } from '../src/core/git';
+import { createNodeHost } from './support/nodeHost';
 
 test('parseWorktreeList: main, branch, detached, prunable, locked, bare', () => {
   const out = [
@@ -90,7 +91,8 @@ test('GitClient reads linked worktrees from a real repository', async (t) => {
 
   // Git reports canonical paths (macOS /private/var, Windows long names), so compare real paths.
   const same = (a: string, b: string) => pathKey(realpathSync.native(a)) === pathKey(realpathSync.native(b));
-  const client = new GitClient();
+  const host = createNodeHost();
+  const client = new GitClient(host);
   const status = await client.status(app);
   assert.equal(status?.worktrees?.length, 1);
   assert.equal(status!.worktrees![0]!.branch, 'feature/x');
@@ -100,6 +102,6 @@ test('GitClient reads linked worktrees from a real repository', async (t) => {
   const wtStatus = await client.status(wt);
   assert.ok(same(wtStatus!.worktreeOf!, app));
   assert.equal(wtStatus!.worktrees, undefined);
-  assert.ok(same((await worktreeMainOf(wt))!, app));
-  assert.equal(await worktreeMainOf(app), undefined);
+  assert.ok(same((await worktreeMainOf(host, wt))!, app));
+  assert.equal(await worktreeMainOf(host, app), undefined);
 });

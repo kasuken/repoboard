@@ -1,12 +1,25 @@
 import { Collection, GitStatus, ProjectMeta, SORT_MODES, SortMode, ViewMode, changedFiles, initialsFor, tagHue } from '../domain/model';
 import { fieldsOf, matchScore, relativeTime, sortProjects } from '../domain/search';
-import type { BoardState, HostMessage, ProjectEdit, ProjectView, WebviewMessage } from './protocol';
+import type { BoardState, ProjectEdit, ProjectView } from './protocol';
+import { onHostMessage, send } from '../core/bridge';
+import { Child, cancelButton, dialog, field, h, icon, iconButton, setDialogCloseHook } from './dom';
+import { setTheme } from './theme';
+import { closeSwitcher, isSwitcherOpen, openSwitcher, refreshSwitcher } from './switcher';
+import { openSettings, refreshSettings } from './settings';
+import { mountNotifications, showAsk, updateProgress } from './notifications';
+import { openGuide } from './guide';
+import { openLog, setLog } from './log';
 
-declare function acquireVsCodeApi(): { postMessage(m: unknown): void; getState(): unknown; setState(s: unknown): void };
-const vscode = acquireVsCodeApi();
-const send = (m: WebviewMessage) => vscode.postMessage(m);
+// ── UI state (persisted in localStorage) ───────────────────────────────────
 
-// ── UI state (persisted per panel) ─────────────────────────────────────────
+const STORE_KEY = 'repoboard.ui';
+function loadUi(): Partial<UiState> {
+  try {
+    return JSON.parse(localStorage.getItem(STORE_KEY) ?? '{}') as Partial<UiState>;
+  } catch {
+    return {};
+  }
+}
 
 type Filter = 'all' | 'changes' | 'behind' | 'ahead' | 'missing';
 interface UiState {
@@ -18,8 +31,14 @@ interface UiState {
   focusedId?: string | undefined;
   collapsed: string[];
 }
-const ui: UiState = { query: '', filter: 'all', collapsed: [], ...((vscode.getState() as Partial<UiState> | undefined) ?? {}) };
-const saveUi = () => vscode.setState(ui);
+const ui: UiState = { query: '', filter: 'all', collapsed: [], ...loadUi() };
+const saveUi = () => {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(ui));
+  } catch {
+    // storage blocked: the board just forgets its view state
+  }
+};
 
 let board: BoardState | undefined;
 let busy = new Set<string>();
@@ -28,32 +47,7 @@ let pendingEdit: string | undefined;
 const sortMode = (): SortMode => ui.sort ?? board?.settings.defaultSort ?? 'recent';
 const viewMode = (): ViewMode => ui.view ?? board?.settings.defaultView ?? 'grid';
 
-// ── DOM helpers (textContent only — every string from git or the user is untrusted) ──
-
-type Child = Node | string | null | undefined | false;
-type Props = Record<string, unknown>;
-
-function h<K extends keyof HTMLElementTagNameMap>(tag: K, props: Props = {}, ...children: Child[]): HTMLElementTagNameMap[K] {
-  const el = document.createElement(tag);
-  for (const [key, value] of Object.entries(props)) {
-    if (value === undefined || value === null || value === false) continue;
-    if (key === 'class') el.className = String(value);
-    else if (key === 'text') el.textContent = String(value);
-    else if (key === 'style' && typeof value === 'object') {
-      for (const [prop, v] of Object.entries(value as Record<string, string>)) if (v !== undefined) el.style.setProperty(prop, v);
-    } else if (key.startsWith('on') && typeof value === 'function') el.addEventListener(key.slice(2), value as EventListener);
-    else if (key in el && typeof value !== 'string') (el as unknown as Record<string, unknown>)[key] = value;
-    else el.setAttribute(key, value === true ? '' : String(value));
-  }
-  for (const child of children) if (child !== null && child !== undefined && child !== false) el.append(child);
-  return el;
-}
-
-const icon = (name: string, extra = '') => h('span', { class: `codicon codicon-${name} ${extra}`.trim(), 'aria-hidden': 'true' });
-
-function iconButton(name: string, label: string, onclick: (e: MouseEvent) => void, extra: Props = {}): HTMLButtonElement {
-  return h('button', { class: 'icon-btn', type: 'button', title: label, 'aria-label': label, onclick, ...extra }, icon(name));
-}
+setDialogCloseHook(() => focusTile(ui.focusedId));
 
 const mod = () => (board?.settings.isMac ? '⌘' : 'Ctrl');
 
@@ -215,6 +209,8 @@ const strip = h('div', { class: 'pulse', 'aria-hidden': 'true' });
 const filters = h('div', { class: 'filters', role: 'toolbar', 'aria-label': 'Filters' });
 const main = h('main', { class: 'board', onkeydown: onBoardKey });
 const toastBox = h('div', { class: 'toasts', role: 'status' });
+const platform = () => board?.settings.platform ?? 'win32';
+const fileManager = () => (platform() === 'darwin' ? 'Finder' : platform() === 'linux' ? 'file manager' : 'File Explorer');
 
 root.append(
   h(
@@ -226,8 +222,8 @@ root.append(
   strip,
   filters,
   main,
-  toastBox,
 );
+mountNotifications(root, toastBox);
 
 // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -640,10 +636,9 @@ function emptyBoard(): HTMLElement {
       'div',
       { class: 'empty-actions' },
       h('button', { type: 'button', class: 'btn primary', onclick: () => send({ type: 'addScanRoot' }) }, icon('radio-tower'), 'Scan a folder for repos'),
-      board?.canAddCurrent ? h('button', { type: 'button', class: 'btn', onclick: () => send({ type: 'addCurrent' }) }, icon('add'), 'Add current folder') : null,
       h('button', { type: 'button', class: 'btn', onclick: () => send({ type: 'addFolder' }) }, icon('folder'), 'Add one folder'),
     ),
-    h('p', { class: 'empty-guide' }, 'First time here? ', h('button', { type: 'button', class: 'link', onclick: () => send({ type: 'getStarted' }) }, 'Open the setup guide'), ' to scan your folders and choose whether Repo Board opens in new windows.'),
+    h('p', { class: 'empty-guide' }, 'First time here? ', h('button', { type: 'button', class: 'link', onclick: () => showGuide() }, 'Open the setup guide'), ' to scan your folders, learn the switcher and choose your editor.'),
   );
 }
 
@@ -752,7 +747,25 @@ function onBoardKey(e: KeyboardEvent): void {
   } else return;
 }
 
+const showSwitcher = () => openSwitcher(() => board);
+const showSettings = () => board && openSettings(board);
+const showGuide = () => openGuide(board, { openSwitcher: showSwitcher, openSettings: showSettings });
+
 document.addEventListener('keydown', (e) => {
+  const cmd = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey;
+  const k = e.key.toLowerCase();
+  if (cmd && (k === 'p' || k === 'k')) {
+    e.preventDefault();
+    if (isSwitcherOpen()) closeSwitcher();
+    else if (!document.querySelector('dialog[open]')) showSwitcher();
+    return;
+  }
+  if (cmd && e.key === ',') {
+    e.preventDefault();
+    if (!document.querySelector('dialog[open]')) showSettings();
+    return;
+  }
+  if (isSwitcherOpen()) return;
   const typing = (e.target as HTMLElement).closest?.('input, textarea, select, dialog');
   if (typing) return;
   if (e.key === '/' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f')) {
@@ -937,11 +950,12 @@ function openTileMenu(p: ProjectView, anchor: HTMLElement, at?: MouseEvent): voi
   showMenu(
     anchor,
     [
-      { label: 'Open', icon: 'folder-opened', hint: 'Enter', run: () => openProject(p.id, false) },
+      { label: `Open in ${board!.editorName}`, icon: 'folder-opened', hint: 'Enter', run: () => openProject(p.id, false) },
       { label: 'Open in new window', icon: 'empty-window', hint: `${mod()}+Enter`, run: () => send({ type: 'open', id: p.id, newWindow: true }) },
+      ...(openWithItems(p).length ? [{ label: 'Open with…', icon: 'link-external', run: () => showMenu(anchor, openWithItems(p), at) }] : []),
       { label: 'Open terminal here', icon: 'terminal', hint: 'T', run: () => send({ type: 'terminal', id: p.id }) },
       ...(git?.webUrl ? [{ label: `Open on ${hostOf(git.webUrl)}`, icon: 'globe', hint: 'B', run: () => send({ type: 'openRemote', id: p.id }) }] : []),
-      { label: 'Reveal in file explorer', icon: 'folder', run: () => send({ type: 'reveal', id: p.id }) },
+      { label: `Reveal in ${fileManager()}`, icon: 'folder', run: () => send({ type: 'reveal', id: p.id }) },
       { label: 'Copy path', icon: 'copy', run: () => send({ type: 'copyPath', id: p.id }) },
       'sep',
       ...(git?.upstream
@@ -960,6 +974,13 @@ function openTileMenu(p: ProjectView, anchor: HTMLElement, at?: MouseEvent): voi
   );
 }
 
+/** Editors found on this machine, for "Open with…". */
+function openWithItems(p: ProjectView): MenuItem[] {
+  return (board?.launchers.editors ?? [])
+    .filter((l) => l.available && l.id !== 'custom')
+    .map((l) => ({ label: l.name, icon: l.id === board!.appSettings.editor ? 'check' : 'code', run: () => send({ type: 'openWith', id: p.id, editor: l.id }) }));
+}
+
 /** Lists a repo's linked worktrees; picking one opens it (Ctrl/Cmd+click: the other window). */
 function openWorktreeMenu(p: ProjectView, anchor: HTMLElement): void {
   const trees = board!.meta[p.id]?.git?.worktrees ?? [];
@@ -975,7 +996,7 @@ function openWorktreeMenu(p: ProjectView, anchor: HTMLElement): void {
   if (trees.length) {
     items.push('sep');
     items.push({ label: 'Open a terminal in…', icon: 'terminal', run: () => openWorktreeSubmenu(p, anchor, 'terminal') });
-    items.push({ label: 'Reveal in file explorer…', icon: 'folder', run: () => openWorktreeSubmenu(p, anchor, 'reveal') });
+    items.push({ label: `Reveal in ${fileManager()}…`, icon: 'folder', run: () => openWorktreeSubmenu(p, anchor, 'reveal') });
   }
   showMenu(anchor, items);
 }
@@ -993,7 +1014,6 @@ function shortPath(full: string, main: string): string {
 
 function openAddMenu(anchor: HTMLElement): void {
   showMenu(anchor, [
-    ...(board?.canAddCurrent ? [{ label: 'Add current folder', icon: 'add', run: () => send({ type: 'addCurrent' }) }] : []),
     { label: 'Add a folder…', icon: 'folder', run: () => send({ type: 'addFolder' }) },
     { label: 'Scan another folder for repos…', icon: 'radio-tower', run: () => send({ type: 'addScanRoot' }) },
     'sep',
@@ -1006,43 +1026,19 @@ function openBoardMenu(anchor: HTMLElement): void {
     { label: 'Fetch all repos', icon: 'cloud-download', run: () => send({ type: 'fetchAll' }) },
     { label: 'Pull all repos that are behind', icon: 'repo-pull', run: () => send({ type: 'pullAll' }) },
     'sep',
-    board?.settings.startPage
-      ? { label: 'Stop opening on startup', icon: 'home', run: () => send({ type: 'startPage', on: false }) }
-      : { label: 'Use as start page', icon: 'home', run: () => send({ type: 'startPage', on: true }) },
-    { label: 'Setup guide', icon: 'rocket', run: () => send({ type: 'getStarted' }) },
+    { label: 'Remove projects whose folder is gone', icon: 'trash', run: () => send({ type: 'removeMissing' }) },
+    ...(board && board.ignoredCount > 0 ? [{ label: 'Forget removed repos', icon: 'history', title: `${board.ignoredCount} removed path(s) are skipped by folder scans`, run: () => send({ type: 'resetIgnored' }) }] : []),
+    'sep',
+    { label: 'Setup guide', icon: 'rocket', run: showGuide },
     { label: 'Keyboard shortcuts', icon: 'keyboard', hint: '?', run: openHelp },
-    { label: 'Settings', icon: 'settings-gear', run: () => send({ type: 'openSettings' }) },
+    { label: 'View log', icon: 'output', run: openLog },
+    { label: 'Settings', icon: 'settings-gear', hint: `${mod()}+,`, run: showSettings },
   ]);
 }
 
 // ── Dialogs ────────────────────────────────────────────────────────────────
 
 const SWATCHES = ['#e5534b', '#f69d50', '#daaa3f', '#57ab5a', '#39c5cf', '#539bf5', '#986ee2', '#e275ad', '#768390'];
-
-function dialog(title: string, content: HTMLElement[], buttons: HTMLElement[], onSubmit?: () => void): HTMLDialogElement {
-  const form = h('form', { method: 'dialog', class: 'dialog-form' }, h('h2', { class: 'dialog-title', text: title }), ...content, h('div', { class: 'dialog-buttons' }, ...buttons));
-  const d = h('dialog', { class: 'dialog', 'aria-label': title }, form);
-  form.addEventListener('submit', (e) => {
-    const submitter = (e as SubmitEvent).submitter as HTMLButtonElement | null;
-    if (submitter?.value === 'ok' && onSubmit) onSubmit();
-  });
-  d.addEventListener('close', () => {
-    d.remove();
-    focusTile(ui.focusedId);
-  });
-  document.body.append(d);
-  d.showModal();
-  return d;
-}
-
-/** Not a submit button: Enter in a field must submit the dialog's primary action, never Cancel. */
-function cancelButton(): HTMLButtonElement {
-  return h('button', { type: 'button', class: 'btn', text: 'Cancel', onclick: (e: MouseEvent) => (e.currentTarget as HTMLElement).closest('dialog')?.close() });
-}
-
-function field(label: string, input: HTMLElement, hint?: string): HTMLElement {
-  return h('label', { class: 'field' }, h('span', { class: 'field-label', text: label }), input, hint ? h('span', { class: 'field-hint', text: hint }) : null);
-}
 
 function swatchPicker(initial: string | undefined): { el: HTMLElement; value: () => string } {
   let value = initial ?? '';
@@ -1176,9 +1172,9 @@ function confirmRemove(p: ProjectView): void {
 
 function openHelp(): void {
   const rows: Array<[string, string]> = [
+    ['Enter', 'Open in ' + (board?.editorName ?? 'the editor')],
     ['/', 'Search'],
     ['↑ ↓ ← →', 'Move between repos'],
-    ['Enter', 'Open'],
     [`${mod()}+Enter`, 'Open in the other window'],
     ['T', 'Terminal here'],
     ['B', 'Open remote in browser'],
@@ -1188,7 +1184,9 @@ function openHelp(): void {
     ['E', 'Edit details'],
     ['Del', 'Remove from board'],
     ['Esc', 'Clear search'],
-    [board?.settings.isMac ? '⌘⌥P' : 'Ctrl+Alt+P', 'Switch project from anywhere in VS Code'],
+    [`${mod()}+P`, 'Switch project (palette). Also ' + mod() + '+K'],
+    [`${mod()}+,`, 'Settings'],
+    ...(board?.appSettings.globalShortcut ? [[board.appSettings.globalShortcut.replace(/CommandOrControl/g, mod()), 'Switch project from anywhere (global shortcut)'] as [string, string]] : []),
   ];
   dialog(
     'Keyboard shortcuts',
@@ -1207,8 +1205,7 @@ function toast(text: string, kind: 'info' | 'error' = 'info'): void {
 
 // ── Host messages ──────────────────────────────────────────────────────────
 
-window.addEventListener('message', (event: MessageEvent<HostMessage>) => {
-  const m = event.data;
+onHostMessage((m) => {
   switch (m.type) {
     case 'state': {
       board = m.state;
@@ -1220,7 +1217,10 @@ window.addEventListener('message', (event: MessageEvent<HostMessage>) => {
           pendingCollectionAssign = undefined;
         }
       }
+      setTheme(board.appSettings.theme);
       render();
+      refreshSwitcher();
+      refreshSettings(board);
       if (pendingEdit) {
         const id = pendingEdit;
         pendingEdit = undefined;
@@ -1232,6 +1232,7 @@ window.addEventListener('message', (event: MessageEvent<HostMessage>) => {
       if (board) {
         board.meta[m.id] = m.meta;
         scheduleRender();
+        refreshSwitcher();
       }
       break;
     case 'busy':
@@ -1254,6 +1255,21 @@ window.addEventListener('message', (event: MessageEvent<HostMessage>) => {
       break;
     case 'toast':
       toast(m.text, m.kind);
+      break;
+    case 'ask':
+      showAsk(m);
+      break;
+    case 'progress':
+      updateProgress(m.task, m.done);
+      break;
+    case 'switcher':
+      showSwitcher();
+      break;
+    case 'openSettings':
+      showSettings();
+      break;
+    case 'log':
+      setLog(m.lines);
       break;
   }
 });

@@ -74,10 +74,19 @@ export interface LanguageDef {
 }
 
 const BY_EXTENSION = new Map<string, LanguageDef>();
+const BY_NAME = new Map<string, LanguageDef>();
+/** Lowercase extension (no dot; may contain one, e.g. "blade.php") → language name. Handed to the Rust language scanner. */
+export const LANGUAGE_EXTENSIONS: Record<string, string> = {};
 for (const [name, color, extensions] of TABLE) {
+  BY_NAME.set(name, { name, color });
   for (const ext of extensions) {
     BY_EXTENSION.set(ext, { name, color });
+    LANGUAGE_EXTENSIONS[ext] = name;
   }
+}
+
+export function languageByName(name: string): LanguageDef | undefined {
+  return BY_NAME.get(name);
 }
 
 export function languageForFile(fileName: string): LanguageDef | undefined {
