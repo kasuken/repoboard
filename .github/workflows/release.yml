@@ -24,8 +24,11 @@ jobs:
           VERSION="${TAG#v}"
           # The CHANGELOG section for this version, without its heading.
           awk -v v="## $VERSION" '$0==v{on=1;next} /^## /{if(on)exit} on' CHANGELOG.md > notes.md
-          gh release create "$TAG" --draft --title "Repo Board $VERSION" --notes-file notes.md
-          echo "release_id=$(gh api "repos/${{ github.repository }}/releases" --jq ".[] | select(.tag_name==\"$TAG\") | .id" | head -n1)" >> "$GITHUB_OUTPUT"
+          # One call that returns the id: listing releases right after creating a draft can come back without it.
+          ID=$(gh api -X POST "repos/${{ github.repository }}/releases" \
+            -f tag_name="$TAG" -f name="Repo Board $VERSION" -F draft=true -F body=@notes.md --jq .id)
+          test -n "$ID"
+          echo "release_id=$ID" >> "$GITHUB_OUTPUT"
 
   build:
     needs: create-release
@@ -80,4 +83,7 @@ jobs:
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}
-        run: gh api -X PATCH "repos/${{ github.repository }}/releases/${{ needs.create-release.outputs.release_id }}" -F draft=false
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+        run: |
+          test -n "$RELEASE_ID"
+          gh api -X PATCH "repos/${{ github.repository }}/releases/$RELEASE_ID" -F draft=false
