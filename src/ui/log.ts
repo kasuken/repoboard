@@ -6,7 +6,7 @@ import { dialog, h, icon } from './dom';
 let target: HTMLElement | undefined;
 let linesNow: string[] = [];
 
-export function openLog(): void {
+export function openLog(request = true): void {
   const pre = h('pre', { class: 'log', tabindex: '0', 'aria-label': 'Log output', text: 'Loading…' });
   target = pre;
   linesNow = [];
@@ -21,10 +21,12 @@ export function openLog(): void {
   } }, icon('copy'), 'Copy');
   const d = dialog('Log', [pre], [copy, h('button', { type: 'button', class: 'btn', onclick: () => send({ type: 'showLog' }) }, icon('refresh'), 'Reload'), h('span', { class: 'spacer' }), h('button', { type: 'submit', class: 'btn primary', value: 'cancel', text: 'Close' })], undefined, 'log-dialog');
   d.addEventListener('close', () => (target = undefined));
-  send({ type: 'showLog' });
+  if (request) send({ type: 'showLog' });
 }
 
 export function setLog(lines: string[]): void {
+  // The core can push the log unasked ("Show log" on a notification): open the viewer then.
+  if (!target) openLog(false);
   linesNow = lines;
   if (!target) return;
   const atBottom = target.scrollHeight - target.scrollTop - target.clientHeight < 24;
