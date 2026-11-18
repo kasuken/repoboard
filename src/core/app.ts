@@ -13,6 +13,7 @@ import { Limiter, MetadataService } from './metadata';
 import * as notify from './notify';
 import { ProjectService } from './projectService';
 import { loadSettings, sanitizeSettings, saveSettings, scanRootsOf } from './settings';
+import { UPDATE_CHECK_DELAY_MS, Updater, updateCheckDue } from './updates';
 
 const AUTO_SCAN_INTERVAL_MS = 10 * 60_000;
 
@@ -28,7 +29,11 @@ export class App {
   launchers: Launchers = { editors: [], terminals: [] };
   platform: PlatformInfo = { platform: 'linux', home: '', sharedDir: '', appDir: '', version: '' };
   dataFile = '';
+  /** Delay between the UI being ready and the automatic update check. Tests shrink it. */
+  updateCheckDelayMs = UPDATE_CHECK_DELAY_MS;
 
+  private readonly updater: Updater;
+  private updateTimer: ReturnType<typeof setTimeout> | undefined;
   private scanning = false;
   private lastAutoScan = 0;
   private started = false;
@@ -39,6 +44,11 @@ export class App {
   constructor(readonly host: HostApi) {
     this.git = new GitClient(host);
     this.projects = new ProjectService(new CatalogStore(host));
+    this.updater = new Updater({
+      host,
+      stampCheck: (at) => this.stampUpdateCheck(at),
+      showLog: () => this.showLog(),
+    });
     this.meta = new MetadataService(this.git, host, {
       cacheMs: () => this.settings.cacheMinutes * 60_000,
       detectLanguages: () => this.settings.detectLanguages,
@@ -133,6 +143,7 @@ export class App {
   }
 
   dispose(): void {
+    clearTimeout(this.updateTimer);
     void this.meta.persist();
     this.projects.dispose();
     for (const d of this.disposers.splice(0)) d();
@@ -201,7 +212,8 @@ export class App {
   // ── Settings ───────────────────────────────────────────────────────────
 
   async updateSettings(next: AppSettings): Promise<void> {
-    this.settings = sanitizeSettings(next);
+    // The check time belongs to the core; the dialog's copy may be stale.
+    this.settings = sanitizeSettings({ ...next, lastUpdateCheck: this.settings.lastUpdateCheck });
     await saveSettings(this.host, this.settings);
     await this.applyHostSettings();
     this.postState();
@@ -523,6 +535,32 @@ export class App {
     }
   }
 
+  // ── Updates ────────────────────────────────────────────────────────────
+
+  private async stampUpdateCheck(at: number): Promise<void> {
+    this.settings = { ...this.settings, lastUpdateCheck: at };
+    await saveSettings(this.host, this.settings).catch((e) => log(`[update] could not save the check time: ${errorText(e)}`));
+  }
+
+  /** Schedules the silent startup check (once). */
+  private scheduleUpdateCheck(): void {
+    if (this.updateTimer) return;
+    this.updateTimer = setTimeout(() => void this.autoCheckUpdates(), this.updateCheckDelayMs);
+    // Never keep a Node process (tests) alive for this timer.
+    (this.updateTimer as { unref?: () => void }).unref?.();
+  }
+
+  /** Checks silently when the setting is on and the last check is older than 24 h. */
+  async autoCheckUpdates(): Promise<void> {
+    if (!updateCheckDue(this.settings, Date.now())) return;
+    await this.updater.checkSilently();
+  }
+
+  /** "Check for updates…": ignores the setting and the throttle, and always reports. */
+  async checkUpdates(): Promise<void> {
+    await this.updater.checkManually(this.platform.version);
+  }
+
   // ── Housekeeping commands ──────────────────────────────────────────────
 
   /** Removes projects whose folder is gone. Projects on disconnected drives ('offline') are kept. */
@@ -586,6 +624,7 @@ export class App {
         this.postState();
         this.refreshVisible(this.settings.fetchOnOpen);
         this.autoScanIfDue();
+        this.scheduleUpdateCheck();
         return;
       case 'open':
         if (project) await this.open(project, m.newWindow);
@@ -698,6 +737,9 @@ export class App {
         return;
       case 'cancelTask':
         notify.cancelTask(m.id);
+        return;
+      case 'checkUpdates':
+        await this.checkUpdates();
         return;
       case 'openUrl':
         // Only web links: the UI must never be able to make the host open arbitrary schemes.

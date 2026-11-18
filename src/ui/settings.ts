@@ -93,6 +93,7 @@ export function openSettings(board: BoardState): void {
   const autoScan = check('Scan on start and when the app regains focus', 'At most every 10 minutes.', s.autoScan);
   const fetchOnOpen = check('Fetch in the background', 'Runs non-interactive git fetch when the app starts or the board is refreshed, so ahead and behind counts are real.', s.fetchOnOpen);
   const langs = check('Show a language bar on each project', 'A bounded, cached file scan.', s.detectLanguages);
+  const updates = check('Check for updates automatically', 'Looks for a new version on GitHub when the app starts, at most once a day.', s.checkForUpdates);
   const tray = check('Closing the window keeps Repo Board in the tray', 'Off: closing the window quits the app.', s.closeToTray);
 
   const view = h('select', { class: 'input' }, h('option', { value: 'grid', text: 'Grid', selected: s.defaultView === 'grid' }), h('option', { value: 'list', text: 'List', selected: s.defaultView === 'list' }));
@@ -137,6 +138,7 @@ export function openSettings(board: BoardState): void {
       'App',
       h('div', { class: 'field-row even' }, field('Theme', theme), field('Global shortcut', shortcut, mac ? 'Brings Repo Board forward with the switcher open. Example: Command+Alt+Shift+P. Empty turns it off.' : 'Brings Repo Board forward with the switcher open. Example: CommandOrControl+Alt+Shift+P. Empty turns it off.')),
       tray.el,
+      updates.el,
     ),
   );
 
@@ -178,6 +180,7 @@ export function openSettings(board: BoardState): void {
         globalShortcut: shortcut.value.trim(),
         theme: theme.value as AppSettings['theme'],
         closeToTray: tray.box.checked,
+        checkForUpdates: updates.box.checked,
       };
       send({ type: 'saveSettings', settings: next });
     },

@@ -53,6 +53,8 @@ export function sanitizeSettings(raw: unknown): AppSettings {
     globalShortcut: str(r['globalShortcut'], d.globalShortcut).trim(),
     theme: oneOf(r['theme'], ['system', 'light', 'dark'] as const, d.theme),
     closeToTray: bool(r['closeToTray'], d.closeToTray),
+    checkForUpdates: bool(r['checkForUpdates'], d.checkForUpdates),
+    lastUpdateCheck: num(r['lastUpdateCheck'], d.lastUpdateCheck, 0),
   };
 }
 

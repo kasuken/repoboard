@@ -87,6 +87,16 @@ export const EVENTS = {
 
 export type TrayAction = 'fetchAll' | 'pullAll' | 'scan' | 'switcher' | 'settings';
 
+/** A newer release found by the updater. */
+export interface UpdateInfo {
+  version: string;
+  currentVersion: string;
+  /** Release notes (markdown or plain text); may be empty. */
+  notes: string;
+  /** Publication date as the updater reports it. */
+  date?: string;
+}
+
 /** The Rust side of the app. `src/host/tauri.ts` implements it with `invoke`; `src/host/mock.ts` fakes it in a browser. */
 export interface HostApi {
   /** Rust: platform_info() */
@@ -179,4 +189,11 @@ export interface HostApi {
   copyText(text: string): Promise<void>;
   /** @tauri-apps/api/event `listen`. Returns an unlisten function. */
   on<T>(event: string, handler: (payload: T) => void): Promise<() => void>;
+  /** @tauri-apps/plugin-updater `check()`. null = up to date. Rejects when offline or no release is published. The found update is kept for `installUpdate`. */
+  checkUpdate(): Promise<UpdateInfo | null>;
+  /**
+   * `downloadAndInstall` of the update found by the last `checkUpdate`, then `relaunch()` (plugin-process).
+   * `total` is undefined when the server sends no length. Rejects on failure.
+   */
+  installUpdate(onProgress: (downloaded: number, total: number | undefined) => void): Promise<void>;
 }

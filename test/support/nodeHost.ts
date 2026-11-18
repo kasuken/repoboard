@@ -86,6 +86,8 @@ export function createNodeHost(): HostApi {
     openDataFile: unsupported('openDataFile'),
     setGlobalShortcut: unsupported('setGlobalShortcut'),
     setCloseToTray: unsupported('setCloseToTray'),
+    checkUpdate: unsupported('checkUpdate'),
+    installUpdate: unsupported('installUpdate'),
     pickFolders: unsupported('pickFolders'),
     copyText: unsupported('copyText'),
     on: unsupported('on') as unknown as HostApi['on'],

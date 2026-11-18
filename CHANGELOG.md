@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+- **Automatic updates.** Repo Board checks GitHub for a new version when it starts (at most once a day) and offers
+  to install it and restart. Updates are signed and verified before they are installed. Use **⋯ › Check for
+  updates** to look right away, or turn the automatic check off in Settings.
+- macOS builds are ad-hoc signed, which should replace the "damaged" message with the usual first-launch prompt.
+
+Version 0.1.0 has no updater, so install 0.2.0 by hand once. Later versions arrive by themselves. On Linux,
+automatic updates work for the AppImage; with the `.deb` or `.rpm`, install new versions from the releases page.
+
 ## 0.1.0
 
 The first release of Repo Board as a standalone desktop app for Windows, macOS and Linux, built with Tauri. It has

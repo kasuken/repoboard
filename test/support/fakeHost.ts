@@ -1,5 +1,5 @@
 import type { Availability } from '../../src/domain/model';
-import type { DataFile, GitRun, HostApi, RemoteOp } from '../../src/host/api';
+import type { DataFile, GitRun, HostApi, RemoteOp, UpdateInfo } from '../../src/host/api';
 
 export interface FakeRepo {
   branch?: string;
@@ -24,6 +24,14 @@ export interface FakeHost extends HostApi {
   calls: { remote: Array<{ folder: string; op: RemoteOp }>; backups: DataFile[]; writes: Array<{ name: DataFile; text: string }>; opened: string[][]; [k: string]: unknown };
   /** Paths `discoverRepos` returns. */
   discovered: string[];
+  /** What `checkUpdate` returns, or rejects with when `checkError` is set. */
+  update: UpdateInfo | null;
+  checkError?: string;
+  /** `installUpdate` rejects with this message. */
+  installError?: string;
+  /** Progress reported by `installUpdate` before it finishes. */
+  installProgress: Array<[number, number | undefined]>;
+  updateCalls: { checks: number; installs: number; urls: string[] };
   emit(event: string, payload?: unknown): void;
   /** Simulates the file watcher delivering `text`. */
   fileChanged(text: string): void;
@@ -38,6 +46,9 @@ export function createFakeHost(repos: Record<string, FakeRepo> = {}, platform: '
     files: new Map(),
     calls: { remote: [], backups: [], writes: [], opened: [] },
     discovered: [],
+    update: null,
+    installProgress: [[0, 1000], [500, 1000], [1000, 1000]],
+    updateCalls: { checks: 0, installs: 0, urls: [] },
     emit(event, payload = null) {
       for (const l of listeners.get(event) ?? []) (l as (p: unknown) => void)(payload);
     },
@@ -129,7 +140,9 @@ export function createFakeHost(repos: Record<string, FakeRepo> = {}, platform: '
     },
     async openTerminal() {},
     async reveal() {},
-    async openUrl() {},
+    async openUrl(url) {
+      host.updateCalls.urls.push(url);
+    },
     async openDataFile() {},
     async setGlobalShortcut() {},
     async setCloseToTray() {},
@@ -145,6 +158,17 @@ export function createFakeHost(repos: Record<string, FakeRepo> = {}, platform: '
       return () => {
         set.delete(handler as (p: never) => void);
       };
+    },
+
+    async checkUpdate() {
+      host.updateCalls.checks++;
+      if (host.checkError) throw new Error(host.checkError);
+      return host.update;
+    },
+    async installUpdate(onProgress) {
+      host.updateCalls.installs++;
+      for (const [done, total] of host.installProgress) onProgress(done, total);
+      if (host.installError) throw new Error(host.installError);
     },
   };
   return host;

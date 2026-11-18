@@ -5,7 +5,7 @@
  * Sample data is fictional (ported from dev/fixtures.js). The catalog and settings persist in localStorage.
  */
 import type { Availability } from '../domain/model';
-import type { DataFile, GitRun, GitStatusRaw, HostApi, Launchers, PathKind, PlatformInfo, RemoteOp } from './api';
+import type { DataFile, GitRun, GitStatusRaw, HostApi, Launchers, PathKind, PlatformInfo, RemoteOp, UpdateInfo } from './api';
 
 const BS = '\\';
 const HOME = `C:${BS}Users${BS}dev`;
@@ -475,5 +475,25 @@ export const mockHost: HostApi = {
     return () => {
       set.delete(handler as (payload: never) => void);
     };
+  },
+
+  /** Returns a fake 9.9.9 update only when `localStorage['repoboard.mockUpdate'] === '1'`. */
+  async checkUpdate(): Promise<UpdateInfo | null> {
+    let enabled = false;
+    try {
+      enabled = localStorage.getItem('repoboard.mockUpdate') === '1';
+    } catch {
+      // Storage blocked: no update.
+    }
+    info('checkUpdate', enabled);
+    return enabled ? { version: '9.9.9', currentVersion: '0.0.0-mock', notes: 'Fictional release for trying the update flow.', date: '2030-01-01T00:00:00Z' } : null;
+  },
+  async installUpdate(onProgress) {
+    const total = 5_000_000;
+    for (let done = 0; done <= total; done += 500_000) {
+      onProgress(done, total);
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    info('installUpdate', 'simulated; the mock does not restart');
   },
 };

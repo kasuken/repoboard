@@ -16,6 +16,18 @@ jobs:
       release_id: ${{ steps.create.outputs.release_id }}
     steps:
       - uses: actions/checkout@v4
+      - name: Updater signing key is configured
+        env:
+          KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::Add the TAURI_SIGNING_PRIVATE_KEY repository secret (see README, Releasing)."
+            exit 1
+          fi
+          if grep -q REPLACE_WITH_UPDATER_PUBLIC_KEY src-tauri/tauri.conf.json; then
+            echo "::error::Put the updater public key in src-tauri/tauri.conf.json (plugins.updater.pubkey)."
+            exit 1
+          fi
       - id: create
         env:
           GH_TOKEN: ${{ github.token }}
@@ -73,9 +85,14 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signs the update bundles; the app only installs updates signed with this key (see plugins.updater.pubkey).
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}
+          # Uploads latest.json, which the app's updater reads from releases/latest/download/latest.json.
+          includeUpdaterJson: true
 
   publish:
     needs: [create-release, build]

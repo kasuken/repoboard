@@ -1029,6 +1029,7 @@ function openBoardMenu(anchor: HTMLElement): void {
     { label: 'Remove projects whose folder is gone', icon: 'trash', run: () => send({ type: 'removeMissing' }) },
     ...(board && board.ignoredCount > 0 ? [{ label: 'Forget removed repos', icon: 'history', title: `${board.ignoredCount} removed path(s) are skipped by folder scans`, run: () => send({ type: 'resetIgnored' }) }] : []),
     'sep',
+    { label: 'Check for updates…', icon: 'cloud-download', run: () => send({ type: 'checkUpdates' }) },
     { label: 'Setup guide', icon: 'rocket', run: showGuide },
     { label: 'Keyboard shortcuts', icon: 'keyboard', hint: '?', run: openHelp },
     { label: 'View log', icon: 'output', run: openLog },

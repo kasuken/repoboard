@@ -49,6 +49,10 @@ export interface AppSettings {
   theme: 'system' | 'light' | 'dark';
   /** Closing the window hides it to the tray instead of quitting. */
   closeToTray: boolean;
+  /** Look for a new version on GitHub when the app starts, at most once a day. */
+  checkForUpdates: boolean;
+  /** Epoch ms of the last completed update check. Kept by the core, not shown in Settings. */
+  lastUpdateCheck: number;
 }
 
 export const DEFAULT_IGNORE_DIRS: readonly string[] = [
@@ -77,6 +81,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   globalShortcut: 'CommandOrControl+Alt+Shift+P',
   theme: 'system',
   closeToTray: false,
+  checkForUpdates: true,
+  lastUpdateCheck: 0,
 };
 
 /** Project as the UI sees it. Metadata is sent separately, keyed by project id. */
@@ -196,4 +202,6 @@ export type WebviewMessage =
   | { type: 'showLog' }
   | { type: 'answer'; id: number; action?: string }
   | { type: 'cancelTask'; id: number }
-  | { type: 'openUrl'; url: string };
+  | { type: 'openUrl'; url: string }
+  /** "Check for updates…" in the board menu: checks now and always reports the result. */
+  | { type: 'checkUpdates' };

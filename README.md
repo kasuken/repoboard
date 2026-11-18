@@ -123,6 +123,13 @@ open its remote in the browser.
 Repo Board puts an icon in the system tray with *Switch project*, *Fetch all*, *Pull all* and *Scan*. Turn on
 **Close to tray** in Settings to keep it running in the background.
 
+### Keeps itself up to date
+
+Repo Board checks GitHub for a new version when it starts (at most once a day) and offers to install it and restart.
+Updates are signed, and the app refuses any update that isn't. Choose **⋯ › Check for updates** to look right away, or
+turn the automatic check off in Settings. On Linux, automatic updates work for the AppImage; with the `.deb` or `.rpm`,
+install new versions from the releases page.
+
 ## Quick start
 
 1. Download the installer for your system from the [latest release](https://github.com/kasuken/repoboard/releases/latest):
@@ -184,10 +191,12 @@ Everything is configured in the app (**⋯ › Settings**, or <kbd>Ctrl</kbd>+<k
 | Language bar | on | Bounded file scan per project, capped at *Max files scanned* (10 000) |
 | Theme | system | System, light or dark |
 | Close to tray | off | Closing the window keeps Repo Board running in the tray |
+| Check for updates | on | Look for a new version on GitHub at start-up, at most once a day |
 
 ## Privacy and safety
 
-- **No telemetry, no account, no cloud.** The only network traffic is git talking to your own remotes.
+- **No telemetry, no account, no cloud.** The only network traffic is git talking to your own remotes, and the update
+  check, which downloads `latest.json` from this repository's releases.
 - **Background git never prompts.** Status reads and background fetches disable terminal prompts, Git Credential
   Manager dialogs and askpass helpers. They never take the index lock, and run with repository hooks and
   `core.fsmonitor` turned off. Fetch, pull and push that you start yourself run like your own git, hooks included.
@@ -234,6 +243,23 @@ npm run tauri build   # build installers into src-tauri/target/release/bundle
 
 `npm run dev` alone serves the UI in a normal browser at `http://localhost:1420` with a fake backend and sample repos,
 which is handy for UI work. Set `REPOBOARD_DATA_DIR` to a scratch folder to keep test runs away from your real board.
+
+### Releasing
+
+Pushing a tag such as `v0.2.0` builds every installer and publishes the release with `latest.json` for the updater.
+Keep the version in `package.json`, `src-tauri/Cargo.toml` and `src-tauri/tauri.conf.json` in sync, and add a
+`CHANGELOG.md` section for it: that section becomes the release notes.
+
+Updates are signed. One-time setup for a fork:
+
+```bash
+npx tauri signer generate -w ~/.tauri/repoboard.key
+gh secret set TAURI_SIGNING_PRIVATE_KEY < ~/.tauri/repoboard.key
+gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD   # the password you chose, or press Enter for none
+```
+
+Then put the contents of `~/.tauri/repoboard.key.pub` in `plugins.updater.pubkey` in `src-tauri/tauri.conf.json`.
+Keep the private key safe: installed apps only accept updates signed with it.
 
 ## Credits
 
