@@ -134,8 +134,8 @@ Repo Board puts an icon in the system tray with *Switch project*, *Fetch all*, *
 4. From now on, press <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> anywhere to jump to a repo.
 
 > **The builds are not code-signed yet.** On Windows, SmartScreen may say "Windows protected your PC": choose
-> *More info* › *Run anyway*. On macOS, right-click the app and choose *Open* the first time, or run
-> `xattr -dr com.apple.quarantine "/Applications/Repo Board.app"`.
+> *More info* › *Run anyway*. On macOS, if the app is reported as "damaged" or
+> blocked, run `xattr -dr com.apple.quarantine "/Applications/Repo Board.app"` once.
 
 Repo Board needs [git](https://git-scm.com) on your `PATH`.
 

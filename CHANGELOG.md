@@ -29,7 +29,10 @@ that doesn't depend on VS Code itself.
 
 - The builds are not code-signed yet, so Windows SmartScreen and macOS Gatekeeper show a warning on first launch.
   See the README.
-- macOS and Linux builds compile and pass their tests in CI, but launching editors and terminals, picking up `PATH`
-  and the tray icon have only been exercised on Windows so far. Please report anything that doesn't work.
+- macOS and Linux builds compile and pass their tests in CI, but launching editors and terminals and picking up
+  `PATH` have only been exercised on Windows so far. The tray menu has not been exercised on any OS yet. Please
+  report anything that doesn't work.
+- On macOS, an unsigned app downloaded from the internet may be reported as "damaged". Run
+  `xattr -dr com.apple.quarantine "/Applications/Repo Board.app"` once to open it.
 - Scan folders and other settings are not shared with the VS Code extension. Only the board itself (`catalog.json`)
   is.
