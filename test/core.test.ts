@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { emptyCatalog } from '../src/domain/model';
-import { App } from '../src/core/app';
+import { App, editorTarget } from '../src/core/app';
 import { onHostMessage, onWebviewMessage, post, send } from '../src/core/bridge';
 import { CatalogStore } from '../src/core/catalogStore';
 import { handleAnswer } from '../src/core/notify';
@@ -454,4 +454,13 @@ test('catalog changes made elsewhere update the board state', async () => {
   assert.deepEqual(state.projects.map((p) => p.path), ['/code/a', '/code/b']);
   assert.equal(app.projects.projects.length, 2);
   stop();
+});
+
+test('editorTarget: VS Code-family editors get .code-workspace files as they are, other editors get the folder', () => {
+  setPlatform('win32');
+  const ws = String.raw`C:\code\shop\shop.code-workspace`;
+  const dir = String.raw`C:\code\shop`;
+  for (const editor of ['code', 'code-insiders', 'cursor', 'windsurf', 'codium', 'custom']) assert.equal(editorTarget(ws, editor), ws);
+  assert.equal(editorTarget(ws, 'zed'), dir);
+  assert.equal(editorTarget(dir, 'zed'), dir);
 });

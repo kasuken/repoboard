@@ -19,7 +19,7 @@
   <a href="https://github.com/kasuken/repoboard/issues">Report an issue</a>
 </p>
 
-![Repo Board: search, filter by git state, switch between grid and list, light and dark themes](images/demo.gif)
+![Repo Board showing pinned repos, collections and the git state of every repo](images/hero.png)
 
 Repo Board started as a [VS Code extension](https://marketplace.visualstudio.com/items?itemName=emanuelebartolesi.vscode-repoboard).
 Many users asked for it outside the editor, so this is the same board as a desktop app built with [Tauri](https://tauri.app).
@@ -90,6 +90,8 @@ Press <kbd>Ctrl</kbd>+<kbd>P</kbd> (<kbd>Cmd</kbd>+<kbd>P</kbd> on macOS) in the
 <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> from anywhere. Type a few letters of a name, a path, a
 branch, a collection or a `#tag`. Pinned projects come first, then the ones you opened most recently.
 
+![The project switcher filtered to "pay"](images/switcher.png)
+
 ### Search that understands developers
 
 The board search is fuzzy on names (`chkweb` finds `checkout-web`) and also matches paths, descriptions, branches,
@@ -104,6 +106,8 @@ description. Sort by last opened, name, last commit or most changes, or pick *My
 wherever you want them. Switch between the grid and a dense list.
 
 ![Edit a project: name, description, icon, collection, colour and tags](images/edit.png)
+
+![List view in the light theme](images/list-light.png)
 
 ### Works with your editor and terminal
 
@@ -153,11 +157,15 @@ Repo Board needs [git](https://git-scm.com) on your `PATH`.
 | <kbd>Esc</kbd> | Clear the search |
 | <kbd>?</kbd> | Show all shortcuts |
 
+![Keyboard shortcuts dialog](images/help.png)
+
 On macOS use <kbd>Cmd</kbd> instead of <kbd>Ctrl</kbd>.
 
 ## Settings
 
-Everything is configured in the app (**⋯ › Settings**):
+Everything is configured in the app (**⋯ › Settings**, or <kbd>Ctrl</kbd>+<kbd>,</kbd>):
+
+![The Settings dialog](images/settings.png)
 
 | Setting | Default | Description |
 | --- | --- | --- |

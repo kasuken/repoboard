@@ -227,7 +227,8 @@ export class App {
       }
     }
     await this.projects.update((c) => markOpened(c, project.id));
-    await this.host.openInEditor(folderOf(project.path), editor ?? this.settings.editor, this.settings.editorCommand, newWindow);
+    const chosen = editor ?? this.settings.editor;
+    await this.host.openInEditor(editorTarget(project.path, chosen), chosen, this.settings.editorCommand, newWindow);
   }
 
   /**
@@ -722,6 +723,14 @@ export async function startCore(host: HostApi): Promise<App> {
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : typeof e === 'string' ? e : JSON.stringify(e);
+}
+
+/** Editors that open a `.code-workspace` file as a workspace. The custom command gets the path as stored too. */
+const WORKSPACE_EDITORS = new Set(['code', 'code-insiders', 'cursor', 'windsurf', 'codium', 'custom']);
+
+/** What to hand the editor: workspace files stay files for VS Code-family editors, every other editor gets the folder. */
+export function editorTarget(projectPath: string, editor: string): string {
+  return WORKSPACE_EDITORS.has(editor) ? projectPath : folderOf(projectPath);
 }
 
 function firstLine(text: string): string {

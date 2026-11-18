@@ -93,6 +93,8 @@
 
 .dialog.settings { width: min(640px, calc(100vw - 32px)); }
 .settings-body { display: flex; flex-direction: column; gap: 22px; max-height: min(62vh, 560px); overflow-y: auto; padding-right: 8px; margin-right: -8px; }
+/* Chrome makes the scroll area itself focusable and focuses it when the dialog opens; the fields inside keep their own rings. */
+.settings-body:focus, .settings-body:focus-visible { outline: none; }
 .set-section { display: flex; flex-direction: column; gap: 14px; }
 .set-section + .set-section { padding-top: 18px; border-top: 1px solid var(--border); }
 .set-title { margin: 0; font-size: var(--fs-head); font-weight: 600; }
