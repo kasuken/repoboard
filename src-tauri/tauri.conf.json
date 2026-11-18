@@ -1,0 +1,45 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Repo Board",
+  "mainBinaryName": "repoboard",
+  "version": "0.1.0",
+  "identifier": "com.kasuken.repoboard",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Repo Board",
+        "width": 1280,
+        "height": 840,
+        "minWidth": 560,
+        "minHeight": 420,
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "DeveloperTool",
+    "shortDescription": "Every git repo on your machine, on one board.",
+    "longDescription": "Repo Board auto-discovers every git repository on disk, shows which ones are dirty, behind or ahead at a glance, and opens any of them in your editor or terminal. Fetch or pull them all in one click.",
+    "copyright": "Copyright (c) Emanuele Bartolesi",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
