@@ -55,9 +55,13 @@ const chips = [
         <span>on your machine,</span>
         <span>on one board.</span>
       </h1>
-      <p class="lede">
+      <p class="lede lede-long">
         Repo Board finds every repository on your disk and shows which ones have uncommitted work, commits to pull or
         push, or conflicts, without opening a single one. Free, for Windows, macOS, Linux and VS Code.
+      </p>
+      <p class="lede lede-short">
+        See which repos have uncommitted work, commits to pull or push, or conflicts. Free for Windows, macOS, Linux
+        and VS Code.
       </p>
 
       <div class="chips" role="group" aria-label="Filter the demo board">
@@ -69,7 +73,7 @@ const chips = [
           ))
         }
       </div>
-      <p class="demo-note">A demo board. Click a chip to filter it, the way you do in the app.</p>
+      <p class="demo-note">A demo board. Pick a chip to filter it, the way you do in the app.</p>
 
       <div class="ctas">
         <a class="btn btn-primary" href="#download" data-hero-download>
@@ -273,10 +277,51 @@ const chips = [
     display: block;
     white-space: nowrap;
   }
+  .lede-short {
+    display: none;
+  }
   @media (max-width: 480px) {
     .title {
       font-stretch: 80%;
       font-size: 9.3vw;
+    }
+  }
+
+  /* Phones: keep the panel compact so the wall stays the picture */
+  @media (max-width: 560px) {
+    .stage {
+      padding-block: 24px 16px;
+    }
+    .panel {
+      padding: 20px;
+    }
+    .lede-long {
+      display: none;
+    }
+    .lede-short {
+      display: block;
+      font-size: 1.02rem;
+    }
+    .chips {
+      gap: 6px;
+      margin-top: 18px;
+    }
+    .chip {
+      font-size: 0.88rem;
+      padding: 7px 10px;
+      min-height: 34px;
+    }
+    .demo-note {
+      font-size: 0.84rem;
+    }
+    .ctas {
+      margin-top: 20px;
+      gap: 10px;
+    }
+    .ctas .btn {
+      min-height: 48px;
+      font-size: 1rem;
+      padding: 0.6em 1.1em;
     }
   }
 

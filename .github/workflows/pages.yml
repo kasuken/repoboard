@@ -1,7 +1,9 @@
 name: Website
 
 # Builds the Astro site in site/ and publishes it to GitHub Pages.
-# For a custom domain: set SITE_URL to it and BASE_PATH to "/", and add site/public/CNAME.
+# For a custom domain: add the DNS record (CNAME to kasuken.github.io, or A/AAAA for an apex domain),
+# set the domain in Settings > Pages and Enforce HTTPS, then set SITE_URL below to it and BASE_PATH to "/".
+# No CNAME file is needed: Pages ignores it when publishing from a workflow.
 on:
   push:
     branches: [main]
