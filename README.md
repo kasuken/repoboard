@@ -12,6 +12,8 @@
 <p align="center">
   <a href="https://github.com/kasuken/repoboard/releases/latest"><b>Download</b></a>
   &nbsp;·&nbsp;
+  <a href="https://kasuken.github.io/repoboard/">Website</a>
+  &nbsp;·&nbsp;
   <a href="#quick-start">Quick start</a>
   &nbsp;·&nbsp;
   <a href="#keyboard-shortcuts">Shortcuts</a>
