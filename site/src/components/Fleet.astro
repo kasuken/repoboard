@@ -1,0 +1,366 @@
+---
+// The hero: the app's fleet strip, blown up into a wall of repos coloured by git state.
+// Rendered at build time so it works without JavaScript; the script only filters it and recounts.
+import { links } from '../lib/site';
+
+const TOTAL = 1400;
+type State = 'clean' | 'changes' | 'conflict' | 'behind' | 'ahead' | 'gone';
+
+// Deterministic, so every build and every visitor sees the same board.
+let seed = 20261119;
+const rand = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+const pick = (): State => {
+  const r = rand();
+  if (r < 0.58) return 'clean';
+  if (r < 0.76) return 'changes';
+  if (r < 0.785) return 'conflict';
+  if (r < 0.89) return 'behind';
+  if (r < 0.97) return 'ahead';
+  return 'gone';
+};
+const cells = Array.from({ length: TOTAL }, pick);
+const count = (...s: State[]) => cells.filter((c) => s.includes(c)).length;
+
+const chips = [
+  { id: 'all', label: 'repos', n: TOTAL },
+  { id: 'changes', label: 'with changes', n: count('changes', 'conflict') },
+  { id: 'behind', label: 'behind', n: count('behind') },
+  { id: 'ahead', label: 'ahead', n: count('ahead') },
+  { id: 'gone', label: 'unavailable', n: count('gone') },
+];
+---
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="wall" data-wall data-filter="all" aria-hidden="true">
+    {cells.map((s, i) => <i class={`c ${s}`} style={`--i:${i}`} />)}
+  </div>
+
+  <header class="top wrap">
+    <a class="brand" href={import.meta.env.BASE_URL} aria-label="Repo Board home">
+      <img src={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/icon-96.png`} width="36" height="36" alt="" />
+      <span>Repo Board</span>
+    </a>
+    <nav aria-label="Main">
+      <a href="#features">Features</a>
+      <a href="#vscode">VS Code</a>
+      <a href="#faq">FAQ</a>
+      <a href={links.repo}>GitHub</a>
+    </nav>
+  </header>
+
+  <div class="wrap stage" id="content">
+    <div class="panel">
+      <h1 id="hero-title" class="title">
+        <span>Every git repo</span>
+        <span>on your machine,</span>
+        <span>on one board.</span>
+      </h1>
+      <p class="lede">
+        Repo Board finds every repository on your disk and shows which ones have uncommitted work, commits to pull or
+        push, or conflicts, without opening a single one. Free, for Windows, macOS, Linux and VS Code.
+      </p>
+
+      <div class="chips" role="group" aria-label="Filter the demo board">
+        {
+          chips.map((c) => (
+            <button type="button" class={`chip chip-${c.id}`} data-chip={c.id} aria-pressed={c.id === 'all' ? 'true' : 'false'}>
+              <b data-count={c.id}>{c.n}</b> {c.label}
+            </button>
+          ))
+        }
+      </div>
+      <p class="demo-note">A demo board. Click a chip to filter it, the way you do in the app.</p>
+
+      <div class="ctas">
+        <a class="btn btn-primary" href="#download" data-hero-download>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 3h2v10.17l3.59-3.58L18 11l-6 6-6-6 1.41-1.41L11 13.17V3zM5 19h14v2H5z" /></svg>
+          <span data-hero-label>Download Repo Board</span>
+        </a>
+        <a class="btn btn-ghost" href={links.extension}>Install the VS Code extension</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const wall = document.querySelector<HTMLElement>('[data-wall]');
+  const chips = document.querySelectorAll<HTMLButtonElement>('[data-chip]');
+  const groups: Record<string, string[]> = {
+    changes: ['changes', 'conflict'],
+    behind: ['behind'],
+    ahead: ['ahead'],
+    gone: ['gone'],
+  };
+
+  // Count only the cells that are actually on screen, so the chips match what you see.
+  function recount() {
+    if (!wall) return;
+    const box = wall.getBoundingClientRect();
+    const visible = [...wall.children].filter((c) => (c as HTMLElement).offsetTop + 4 < box.height);
+    const n = (states?: string[]) =>
+      states ? visible.filter((c) => states.some((s) => c.classList.contains(s))).length : visible.length;
+    document.querySelectorAll<HTMLElement>('[data-count]').forEach((el) => {
+      const id = el.dataset.count!;
+      el.textContent = String(n(groups[id]));
+    });
+  }
+
+  chips.forEach((chip) =>
+    chip.addEventListener('click', () => {
+      const id = chip.dataset.chip!;
+      const next = chip.getAttribute('aria-pressed') === 'true' && id !== 'all' ? 'all' : id;
+      wall?.setAttribute('data-filter', next);
+      chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.chip === next)));
+    }),
+  );
+
+  recount();
+  let t: number | undefined;
+  addEventListener('resize', () => {
+    clearTimeout(t);
+    t = window.setTimeout(recount, 150);
+  });
+</script>
+
+<style>
+  .hero {
+    position: relative;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    isolation: isolate;
+    overflow: hidden;
+  }
+
+  /* The wall */
+  .wall {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    display: grid;
+    grid-template-columns: repeat(var(--cols, 16), 1fr);
+    gap: 4px;
+    padding: 4px;
+    align-content: start;
+    overflow: hidden;
+    --cols: 14;
+  }
+  @media (min-width: 560px) {
+    .wall {
+      --cols: 22;
+    }
+  }
+  @media (min-width: 900px) {
+    .wall {
+      --cols: 34;
+      gap: 5px;
+      padding: 5px;
+    }
+  }
+  @media (min-width: 1400px) {
+    .wall {
+      --cols: 44;
+    }
+  }
+
+  .c {
+    aspect-ratio: 1;
+    border-radius: 2px;
+    background: var(--s);
+    transition: opacity 260ms ease, transform 260ms ease;
+  }
+  .clean {
+    --s: var(--clean);
+  }
+  .changes {
+    --s: var(--changes);
+  }
+  .conflict {
+    --s: var(--conflict);
+  }
+  .behind {
+    --s: var(--behind);
+  }
+  .ahead {
+    --s: var(--ahead);
+  }
+  .gone {
+    --s: repeating-linear-gradient(135deg, var(--conflict) 0 3px, transparent 3px 6px);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--conflict) 60%, transparent);
+  }
+
+  /* Filtering: everything that doesn't match fades back, the way the board narrows down */
+  .wall[data-filter='changes'] .c:not(.changes, .conflict),
+  .wall[data-filter='behind'] .c:not(.behind),
+  .wall[data-filter='ahead'] .c:not(.ahead),
+  .wall[data-filter='gone'] .c:not(.gone) {
+    opacity: 0.08;
+    transform: scale(0.82);
+  }
+
+  /* Top bar */
+  .top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-top: 20px;
+    position: relative;
+  }
+  .brand,
+  .top nav {
+    background: var(--ink);
+    border-radius: var(--radius-s);
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px 8px 8px;
+    font-family: var(--display);
+    font-weight: 800;
+    font-stretch: 115%;
+    font-size: 1.15rem;
+    text-decoration: none;
+  }
+  .top nav {
+    display: flex;
+    gap: 2px;
+    padding: 4px;
+  }
+  .top nav a {
+    padding: 8px 12px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.98rem;
+    border-radius: 3px;
+  }
+  .top nav a:hover {
+    background: var(--ink-3);
+  }
+  @media (max-width: 640px) {
+    .top nav a:not(:last-child) {
+      display: none;
+    }
+  }
+
+  /* The cut-out panel */
+  .stage {
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    padding-block: 40px clamp(24px, 6vh, 72px);
+  }
+  .panel {
+    background: var(--ink);
+    padding: clamp(22px, 3.4vw, 48px);
+    border-radius: var(--radius-m);
+    width: fit-content;
+    max-width: 100%;
+    box-shadow: 0 0 0 6px var(--ink);
+  }
+
+  .title {
+    margin: 0 0 0.45em;
+    font-family: var(--display);
+    font-weight: 850;
+    font-size: clamp(1.9rem, 6.95vw, 5.6rem);
+    line-height: 0.94;
+    letter-spacing: -0.025em;
+    font-stretch: 118%;
+  }
+  .title span {
+    display: block;
+    white-space: nowrap;
+  }
+  @media (max-width: 480px) {
+    .title {
+      font-stretch: 80%;
+      font-size: 9.3vw;
+    }
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 28px;
+  }
+  .chip {
+    font: 600 0.98rem/1 var(--body);
+    color: var(--paper);
+    background: transparent;
+    border: 1.5px solid var(--line);
+    border-radius: 999px;
+    padding: 9px 14px;
+    min-height: 40px;
+    cursor: pointer;
+    transition: border-color 140ms ease, background-color 140ms ease;
+  }
+  .chip b {
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    margin-right: 0.15em;
+  }
+  .chip-changes b {
+    color: var(--changes);
+  }
+  .chip-behind b {
+    color: var(--behind);
+  }
+  .chip-ahead b {
+    color: var(--ahead);
+  }
+  .chip-gone b {
+    color: var(--conflict);
+  }
+  .chip:hover {
+    border-color: var(--muted);
+  }
+  .chip[aria-pressed='true'] {
+    background: var(--ink-3);
+    border-color: var(--paper);
+  }
+  .demo-note {
+    margin: 10px 0 0;
+    font-size: 0.92rem;
+    color: var(--muted);
+  }
+
+  .ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 30px;
+  }
+
+  /* The one orchestrated moment: the board scans in row by row, then the headline stretches out. */
+  @media (prefers-reduced-motion: no-preference) {
+    .c {
+      animation: scan 420ms calc(var(--i) * 0.9ms) both ease-out;
+    }
+    .title {
+      animation: stretch 900ms 900ms both cubic-bezier(0.2, 0.7, 0.1, 1);
+    }
+    @keyframes scan {
+      from {
+        background: var(--unscanned);
+        box-shadow: none;
+        transform: scale(0.6);
+      }
+    }
+    @keyframes stretch {
+      from {
+        font-stretch: 62%;
+        letter-spacing: 0.01em;
+      }
+    }
+    @media (max-width: 480px) {
+      @keyframes stretch {
+        from {
+          font-stretch: 52%;
+        }
+      }
+    }
+  }
+</style>

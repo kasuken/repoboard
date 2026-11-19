@@ -1,0 +1,658 @@
+---
+import { Image } from 'astro:assets';
+import Base from '../layouts/Base.astro';
+import Fleet from '../components/Fleet.astro';
+import Download from '../components/Download.astro';
+import { links, faqs, url } from '../lib/site';
+
+import hero from '../assets/hero.png';
+import attention from '../assets/attention.png';
+import worktrees from '../assets/worktrees.png';
+import switcher from '../assets/switcher.png';
+import search from '../assets/search.png';
+import menu from '../assets/menu.png';
+
+const shot = '(min-width: 1240px) 700px, (min-width: 900px) 56vw, 100vw';
+const editors = ['VS Code', 'Cursor', 'Windsurf', 'Zed', 'VSCodium', 'Sublime Text', 'IntelliJ IDEA', 'VS Code Insiders'];
+const terminals = ['Windows Terminal', 'PowerShell', 'Terminal', 'iTerm', 'GNOME Terminal', 'Konsole'];
+const legend = [
+  ['changes', 'Uncommitted changes'],
+  ['behind', 'Behind: something to pull'],
+  ['ahead', 'Ahead: something to push'],
+  ['conflict', 'Merge conflicts'],
+  ['clean', 'Clean and in sync'],
+  ['gone', 'Folder or drive missing'],
+];
+---
+
+<Base>
+  <Fleet />
+
+  <main>
+    <!-- The routine -->
+    <section class="routine wrap" aria-labelledby="routine-title">
+      <div class="routine-copy">
+        <h2 id="routine-title" class="h2">You know the routine.</h2>
+        <div class="prose">
+          <p>
+            You <code>cd</code> around to remember which repo has uncommitted work. You forget to pull before you start.
+            You scroll through your editor's recent list hoping the project is still there.
+          </p>
+          <p><strong>Repo Board replaces all of that with one window.</strong></p>
+        </div>
+      </div>
+      <pre class="term" aria-label="A terminal session checking repos one at a time"><code><span class="p">~/code</span> $ cd payments-api && git status
+On branch main. Your branch is behind by 4 commits.
+<span class="p">~/code/payments-api</span> $ cd ../checkout-web && git status
+Changes not staged for commit: 7 files
+<span class="p">~/code/checkout-web</span> $ cd ../storefront && git status
+<span class="p">~/code/storefront</span> $ cd ../tiny-router && git status
+Unmerged paths: 2 files
+<span class="p">~/code/tiny-router</span> $ cd ../…<span class="cursor"></span></code></pre>
+    </section>
+
+    <!-- The board -->
+    <section class="board" aria-labelledby="board-title">
+      <div class="wrap">
+        <h2 id="board-title" class="h2">One look tells you where you're needed.</h2>
+        <p class="lede">
+          Every repo gets a tile with its branch, ahead and behind counts, changed files, stashes and last commit. The
+          strip at the top has one cell per repo, coloured by git state.
+        </p>
+      </div>
+      <figure class="board-shot wrap">
+        <Image
+          src={hero}
+          widths={[720, 1200, 1800, 2400]}
+          sizes="(min-width: 1240px) 1240px, 100vw"
+          alt="Repo Board showing pinned repos, collections, filter chips and the git state of every repo"
+          loading="eager"
+        />
+        <figcaption>
+          <ul class="legend">
+            {
+              legend.map(([s, label]) => (
+                <li>
+                  <i class={`swatch ${s}`} aria-hidden="true" />
+                  {label}
+                </li>
+              ))
+            }
+          </ul>
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="features wrap" aria-labelledby="features-title">
+      <h2 id="features-title" class="visually-hidden">Features</h2>
+
+      <article class="feature">
+        <div class="feature-copy">
+          <h3 class="h3">It finds your repos for you.</h3>
+          <div class="prose">
+            <p>
+              Point it at <code>C:\code</code> or <code>~/src</code> once. Every repository underneath appears, and new
+              clones show up by themselves.
+            </p>
+            <p>
+              It stops at each <code>.git</code>, never follows symlinks or junctions, and skips <code>node_modules</code>
+              and friends. Repos you remove stay removed.
+            </p>
+          </div>
+        </div>
+        <pre class="tree" aria-label="A scanned folder tree"><code>~/code
+├─ payments-api/        <span class="ok">added</span>
+├─ checkout-web/        <span class="ok">added</span>
+├─ clients/
+│  ├─ acme-portal/      <span class="ok">added</span>
+│  └─ node_modules/     <span class="no">skipped</span>
+├─ storefront/          <span class="ok">added</span>
+└─ notes.txt</code></pre>
+      </article>
+
+      <article class="feature flip">
+        <div class="feature-copy">
+          <h3 class="h3">Filter to what needs you right now.</h3>
+          <div class="prose">
+            <p>
+              Click <strong>with changes</strong>, <strong>behind</strong>, <strong>ahead</strong> or
+              <strong>unavailable</strong> and the board narrows down. Sort by most changes and the repos that need you
+              come first.
+            </p>
+            <p>
+              Status comes from a single <code>git status --porcelain=v2</code> per repo, and the board shows instantly
+              from cache while fresh status streams in.
+            </p>
+          </div>
+        </div>
+        <Image src={attention} widths={[700, 1400]} sizes={shot} alt="Repos with uncommitted changes, sorted by most changes" class="shot" />
+      </article>
+
+      <article class="feature">
+        <div class="feature-copy">
+          <h3 class="h3">Made for the age of coding agents.</h3>
+          <div class="prose">
+            <p>
+              Agents spin up a <code>git worktree</code> for every task. Repo Board keeps them with their repo: a badge on
+              the tile that turns yellow when one has uncommitted work.
+            </p>
+            <p>Click it to see each worktree's branch and changes, open it, or open a terminal there. Folders that are gone get flagged.</p>
+          </div>
+        </div>
+        <Image src={worktrees} widths={[700, 1400]} sizes={shot} alt="A repo tile listing three agent worktrees and their branches" class="shot" />
+      </article>
+
+      <article class="feature flip">
+        <div class="feature-copy">
+          <h3 class="h3">Jump to any repo in a keystroke.</h3>
+          <div class="prose">
+            <p>
+              Press <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>P</kbd> from anywhere, type a few letters of a
+              name, path, branch or <code>#tag</code>, and press <kbd>Enter</kbd>. Pinned repos come first, then the ones
+              you opened last.
+            </p>
+            <p>The whole board is keyboard-driven: <kbd>T</kbd> opens a terminal, <kbd>B</kbd> the remote, <kbd>F</kbd> fetches.</p>
+          </div>
+        </div>
+        <Image src={switcher} widths={[700, 1400]} sizes={shot} alt="The project switcher filtered to pay" class="shot" />
+      </article>
+
+      <article class="feature">
+        <div class="feature-copy">
+          <h3 class="h3">Search that thinks like a developer.</h3>
+          <div class="prose">
+            <p>
+              Fuzzy on names, so <code>chkweb</code> finds <code>checkout-web</code>. It also matches paths, branches,
+              languages and collections. Combine terms: <code>#acme pay</code>.
+            </p>
+            <p>Pin favourites, group repos into coloured collections, add tags, icons and notes, or drag tiles into your own order.</p>
+          </div>
+        </div>
+        <Image src={search} widths={[700, 1400]} sizes={shot} alt="Board search filtered to the acme tag" class="shot" />
+      </article>
+
+      <article class="feature flip">
+        <div class="feature-copy">
+          <h3 class="h3">Opens where you work.</h3>
+          <div class="prose">
+            <p>One click opens a repo in your editor, a terminal in its folder, or its page on GitHub, GitLab or Azure DevOps.</p>
+          </div>
+          <ul class="tools" aria-label="Supported editors">
+            {editors.map((e) => <li>{e}</li>)}
+          </ul>
+          <ul class="tools tools-dim" aria-label="Supported terminals">
+            {terminals.map((e) => <li>{e}</li>)}
+          </ul>
+        </div>
+        <Image src={menu} widths={[700, 1400]} sizes={shot} alt="Context menu on a repo tile with open, terminal and browser actions" class="shot" />
+      </article>
+    </section>
+
+    <!-- Bulk -->
+    <section class="bulk" aria-labelledby="bulk-title">
+      <div class="wrap bulk-inner">
+        <h2 id="bulk-title" class="h2">Fetch all. Pull all. Go.</h2>
+        <div class="prose">
+          <p>
+            Monday morning, 60 repos out of date. <strong>Pull all</strong> runs across every repo, four at a time. It is
+            fast-forward only, so it never creates a merge, and repos with conflicts are skipped.
+          </p>
+          <p>There is deliberately no push-all button.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Two homes -->
+    <section id="vscode" class="homes wrap" aria-labelledby="homes-title">
+      <h2 id="homes-title" class="h2">One board, two homes.</h2>
+      <p class="lede">
+        Use the desktop app, the VS Code extension, or both. They read and write the same <code>catalog.json</code>, so
+        pins, collections, tags and order stay in sync while both are open.
+      </p>
+      <div class="sync">
+        <a class="home" href="#download">
+          <span class="home-name">Desktop app</span>
+          <span class="home-meta">Windows, macOS and Linux. Works with any editor, lives in your tray.</span>
+        </a>
+        <div class="file" aria-hidden="true">
+          <span class="wire"></span>
+          <code>catalog.json</code>
+          <span class="wire"></span>
+        </div>
+        <a class="home" href={links.extension}>
+          <span class="home-name">VS Code extension</span>
+          <span class="home-meta">The board inside VS Code, with <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>P</kbd> to switch.</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- Privacy -->
+    <section class="privacy wrap" aria-labelledby="privacy-title">
+      <h2 id="privacy-title" class="h2">No telemetry. No account. No cloud.</h2>
+      <ul class="facts">
+        <li><strong>Background git never prompts.</strong> No credential dialogs, no hooks, no index lock during status reads.</li>
+        <li><strong>The UI can't run arbitrary commands.</strong> Every git command line is fixed in the app's Rust core.</li>
+        <li><strong>Credentials never leak into links.</strong> Tokens in remote URLs are stripped before anything is shown or opened.</li>
+        <li><strong>Your data is readable JSON.</strong> Written atomically. A damaged file is kept as a backup, never overwritten.</li>
+      </ul>
+    </section>
+
+    <Download />
+
+    <!-- FAQ -->
+    <section id="faq" class="faq wrap" aria-labelledby="faq-title">
+      <h2 id="faq-title" class="h2">Questions</h2>
+      <div class="faq-list">
+        {
+          faqs.map((f) => (
+            <details>
+              <summary>{f.q}</summary>
+              <p>{f.a}</p>
+            </details>
+          ))
+        }
+      </div>
+    </section>
+
+    <!-- Close -->
+    <section class="close" aria-labelledby="close-title">
+      <div class="strip" aria-hidden="true">
+        {Array.from({ length: 48 }, (_, i) => <i class={['clean', 'changes', 'clean', 'behind', 'clean', 'ahead', 'clean', 'clean', 'changes', 'conflict', 'clean', 'gone'][i % 12]} />)}
+      </div>
+      <div class="wrap close-inner">
+        <h2 id="close-title" class="h2">Put every repo on one board.</h2>
+        <p class="lede">Takes under a minute: install, pick the folder that holds your repos, done.</p>
+        <div class="ctas">
+          <a class="btn btn-primary" href="#download">Download Repo Board</a>
+          <a class="btn btn-ghost" href={links.repo}>Star it on GitHub</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot wrap">
+    <div class="foot-brand">
+      <img src={url('icon-96.png')} width="28" height="28" alt="" loading="lazy" />
+      <span>Repo Board is free and open source under the MIT license.</span>
+    </div>
+    <nav aria-label="Footer">
+      <a href={links.repo}>Desktop app on GitHub</a>
+      <a href={links.extensionRepo}>Extension on GitHub</a>
+      <a href={links.changelog}>Changelog</a>
+      <a href={links.issues}>Report an issue</a>
+      <a href={links.sponsor}>Sponsor</a>
+    </nav>
+  </footer>
+</Base>
+
+<style>
+  main > section {
+    padding-block: clamp(72px, 11vw, 150px);
+  }
+
+  /* Routine */
+  .routine {
+    display: grid;
+    gap: 40px;
+    align-items: center;
+  }
+  @media (min-width: 900px) {
+    .routine {
+      grid-template-columns: 1fr 1.15fr;
+      gap: 64px;
+    }
+  }
+  .term,
+  .tree {
+    margin: 0;
+    padding: 24px;
+    background: #0f0c15;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-m);
+    overflow-x: auto;
+    font-size: clamp(0.78rem, 0.7rem + 0.3vw, 0.92rem);
+    line-height: 1.75;
+    color: var(--muted);
+  }
+  .term .p {
+    color: var(--clean);
+  }
+  .cursor {
+    display: inline-block;
+    width: 0.6em;
+    height: 1.1em;
+    vertical-align: -0.2em;
+    background: var(--paper);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .cursor {
+      animation: blink 1.1s steps(1) infinite;
+    }
+    @keyframes blink {
+      50% {
+        opacity: 0;
+      }
+    }
+  }
+
+  /* Board */
+  .board {
+    background: var(--ink-2);
+  }
+  .board-shot {
+    margin: 48px auto 0;
+  }
+  .board-shot :global(img) {
+    border-radius: var(--radius-m);
+    border: 1px solid var(--line);
+    box-shadow: 0 40px 80px -30px rgb(0 0 0 / 0.7);
+  }
+  .legend {
+    list-style: none;
+    padding: 0;
+    margin: 24px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 26px;
+    color: var(--muted);
+    font-size: 0.98rem;
+  }
+  .legend li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .swatch,
+  .strip i {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+    flex: none;
+    background: var(--s);
+  }
+  .changes {
+    --s: var(--changes);
+  }
+  .behind {
+    --s: var(--behind);
+  }
+  .ahead {
+    --s: var(--ahead);
+  }
+  .conflict {
+    --s: var(--conflict);
+  }
+  .clean {
+    --s: var(--clean);
+  }
+  .gone {
+    --s: repeating-linear-gradient(135deg, var(--conflict) 0 3px, transparent 3px 6px);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--conflict) 60%, transparent);
+  }
+
+  /* Features */
+  .features {
+    display: grid;
+    gap: clamp(80px, 10vw, 140px);
+  }
+  .feature {
+    display: grid;
+    gap: 32px;
+    align-items: center;
+  }
+  @media (min-width: 900px) {
+    .feature {
+      grid-template-columns: 0.8fr 1.2fr;
+      gap: 64px;
+    }
+    .feature.flip > :first-child {
+      order: 2;
+    }
+  }
+  .feature :global(.shot) {
+    border-radius: var(--radius-m);
+    border: 1px solid var(--line);
+  }
+  .tree .ok {
+    color: var(--clean);
+  }
+  .tree .no {
+    color: var(--conflict);
+  }
+  .tools {
+    list-style: none;
+    padding: 0;
+    margin: 8px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    font-family: var(--display);
+    font-weight: 700;
+    font-stretch: 100%;
+    font-size: clamp(1.05rem, 0.95rem + 0.4vw, 1.3rem);
+  }
+  .tools-dim {
+    color: var(--muted);
+    font-weight: 500;
+    margin-top: 12px;
+  }
+
+  /* Bulk */
+  .bulk {
+    background: var(--behind);
+    color: var(--ink);
+  }
+  .bulk-inner {
+    display: grid;
+    gap: 24px;
+    align-items: end;
+  }
+  @media (min-width: 900px) {
+    .bulk-inner {
+      grid-template-columns: 1.2fr 1fr;
+      gap: 64px;
+    }
+  }
+  .bulk .h2 {
+    font-size: clamp(2.6rem, 1rem + 6.5vw, 7rem);
+    font-stretch: 130%;
+    margin: 0;
+  }
+  .bulk .prose p,
+  .bulk .prose strong {
+    color: var(--ink);
+  }
+
+  /* Homes */
+  .sync {
+    display: grid;
+    gap: 16px;
+    margin-top: 48px;
+    align-items: stretch;
+  }
+  @media (min-width: 900px) {
+    .sync {
+      grid-template-columns: 1fr auto 1fr;
+      gap: 0;
+    }
+  }
+  .home {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 28px;
+    border: 2px solid var(--line);
+    border-radius: var(--radius-m);
+    text-decoration: none;
+    transition: border-color 140ms ease;
+  }
+  .home:hover {
+    border-color: var(--ahead);
+  }
+  .home-name {
+    font-family: var(--display);
+    font-weight: 800;
+    font-stretch: 112%;
+    font-size: clamp(1.5rem, 1.1rem + 1.4vw, 2.3rem);
+    line-height: 1.05;
+  }
+  .home-meta {
+    color: var(--muted);
+  }
+  .file {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+  }
+  .file code {
+    padding: 10px 16px;
+    background: var(--changes);
+    color: var(--ink);
+    font-weight: 700;
+    border-radius: var(--radius-s);
+    white-space: nowrap;
+  }
+  .wire {
+    display: block;
+    height: 2px;
+    width: 40px;
+    background: repeating-linear-gradient(90deg, var(--changes) 0 6px, transparent 6px 10px);
+  }
+  @media (max-width: 899px) {
+    .file {
+      flex-direction: column;
+    }
+    .wire {
+      width: 2px;
+      height: 20px;
+      background: repeating-linear-gradient(180deg, var(--changes) 0 6px, transparent 6px 10px);
+    }
+  }
+
+  /* Privacy */
+  .privacy .h2 {
+    max-width: 14ch;
+  }
+  .facts {
+    list-style: none;
+    padding: 0;
+    margin: 40px 0 0;
+    display: grid;
+    gap: 28px 56px;
+    color: var(--muted);
+  }
+  @media (min-width: 760px) {
+    .facts {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .facts li {
+    max-width: 34em;
+    padding-left: 22px;
+    border-left: 3px solid var(--clean);
+  }
+  .facts strong {
+    display: block;
+    color: var(--paper);
+    font-size: 1.12rem;
+    margin-bottom: 4px;
+  }
+
+  /* FAQ */
+  .faq-list {
+    max-width: 820px;
+    border-top: 1px solid var(--line);
+  }
+  details {
+    border-bottom: 1px solid var(--line);
+  }
+  summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 22px 40px 22px 0;
+    position: relative;
+    font-weight: 700;
+    font-size: 1.15rem;
+  }
+  summary::-webkit-details-marker {
+    display: none;
+  }
+  summary::after {
+    content: '+';
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    translate: 0 -50%;
+    font: 400 1.8rem/1 var(--display);
+    color: var(--muted);
+    transition: rotate 160ms ease;
+  }
+  details[open] summary::after {
+    rotate: 45deg;
+  }
+  details p {
+    margin: 0 0 24px;
+    max-width: 40em;
+    color: var(--muted);
+  }
+
+  /* Close */
+  .close {
+    position: relative;
+    overflow: hidden;
+    background: var(--ink-2);
+  }
+  .strip {
+    display: flex;
+    gap: 5px;
+    padding-inline: 5px;
+    margin-bottom: 56px;
+    overflow: hidden;
+  }
+  .strip i {
+    width: auto;
+    height: 26px;
+    flex: 1 0 22px;
+  }
+  .close .h2 {
+    font-size: clamp(2.6rem, 1rem + 6vw, 6.4rem);
+    font-stretch: 125%;
+  }
+  .close .ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 32px;
+  }
+
+  /* Footer */
+  .foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px 40px;
+    justify-content: space-between;
+    align-items: center;
+    padding-block: 40px 56px;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+  .foot-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .foot nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+  }
+  .foot a {
+    text-decoration-color: var(--line);
+    text-underline-offset: 4px;
+  }
+  .foot a:hover {
+    color: var(--paper);
+  }
+</style>

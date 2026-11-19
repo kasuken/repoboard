@@ -1,0 +1,197 @@
+:root {
+  /* Base */
+  --ink: #17131f;
+  --ink-2: #201a2b;
+  --ink-3: #2b2338;
+  --line: #3d3350;
+  --paper: #f3eff8;
+  --muted: #b1a8c0;
+
+  /* The app's own git-state vocabulary */
+  --changes: #e2c08d;
+  --behind: #e0a526;
+  --ahead: #3794ff;
+  --conflict: #e4676b;
+  --clean: #55a463;
+  --unscanned: #2c2438;
+
+  --display: 'Anybody Variable', 'Arial Narrow', system-ui, sans-serif;
+  --body: 'Hanken Grotesk Variable', system-ui, sans-serif;
+  --mono: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Code', monospace;
+
+  --gutter: clamp(16px, 4vw, 48px);
+  --max: 1240px;
+  --radius-s: 4px;
+  --radius-m: 10px;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  scroll-padding-top: 24px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--body);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  font-optical-sizing: auto;
+  overflow-x: hidden;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--ahead);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+code,
+kbd,
+pre {
+  font-family: var(--mono);
+  font-size: 0.9em;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.9em;
+  padding: 0.15em 0.5em 0.25em;
+  border: 1px solid var(--line);
+  border-bottom-width: 3px;
+  border-radius: var(--radius-s);
+  background: var(--ink-2);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.skip {
+  position: absolute;
+  left: 16px;
+  top: -60px;
+  z-index: 10;
+  padding: 10px 14px;
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 700;
+}
+.skip:focus {
+  top: 16px;
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  min-height: 52px;
+  padding: 0.7em 1.3em;
+  border-radius: var(--radius-s);
+  font: 700 1.0625rem/1.2 var(--body);
+  text-decoration: none;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 120ms ease, background-color 120ms ease;
+}
+.btn svg {
+  width: 1.2em;
+  height: 1.2em;
+  flex: none;
+}
+.btn-primary {
+  background: var(--ahead);
+  color: var(--ink);
+}
+.btn-primary:hover {
+  background: #5ea9ff;
+}
+.btn-ghost {
+  border-color: var(--line);
+  color: var(--paper);
+}
+.btn-ghost:hover {
+  border-color: var(--paper);
+}
+.btn:active {
+  transform: translateY(1px);
+}
+
+/* Section type */
+.h2 {
+  font-family: var(--display);
+  font-weight: 800;
+  font-stretch: 112%;
+  font-size: clamp(2.1rem, 1.3rem + 3.6vw, 4.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  margin: 0 0 0.45em;
+  text-wrap: balance;
+}
+.h3 {
+  font-family: var(--display);
+  font-weight: 750;
+  font-stretch: 104%;
+  font-size: clamp(1.45rem, 1.1rem + 1.3vw, 2.15rem);
+  line-height: 1.08;
+  margin: 0 0 0.5em;
+  text-wrap: balance;
+}
+.lede {
+  font-size: clamp(1.1rem, 1rem + 0.45vw, 1.35rem);
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 38em;
+  margin: 0;
+  text-wrap: pretty;
+}
+.prose p {
+  max-width: 36em;
+  color: var(--muted);
+  margin: 0 0 1em;
+  text-wrap: pretty;
+}
+.prose strong {
+  color: var(--paper);
+}
