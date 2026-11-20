@@ -43,6 +43,7 @@ export function sanitizeSettings(raw: unknown): AppSettings {
     defaultView: oneOf(r['defaultView'], ['grid', 'list'] as const, d.defaultView),
     defaultSort: oneOf(r['defaultSort'], SORT_MODES, d.defaultSort),
     fetchOnOpen: bool(r['fetchOnOpen'], d.fetchOnOpen),
+    fetchInterval: num(r['fetchInterval'], d.fetchInterval, 0, 1440),
     cacheMinutes: num(r['cacheMinutes'], d.cacheMinutes, 0),
     detectLanguages: bool(r['detectLanguages'], d.detectLanguages),
     maxFilesScanned: num(r['maxFilesScanned'], d.maxFilesScanned, 100),

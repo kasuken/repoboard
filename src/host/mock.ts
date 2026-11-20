@@ -48,6 +48,8 @@ interface RepoSpec {
   fetchedMsAgo?: number | null;
   /** Pull / push fail with this message (simulates a diverged branch or a rejected push). */
   remoteError?: string;
+  /** Every fetch (background or user) fails with this message. */
+  fetchError?: string;
 }
 
 const H = 3600;
@@ -121,6 +123,7 @@ const SPECS: RepoSpec[] = [
   }),
   repo('acme-infra', {
     fetchedMsAgo: 14 * D * 1000,
+    fetchError: "fatal: Authentication failed for 'https://dev.azure.com/acme/_git/acme-infra'",
     commit: { subject: 'Scale staging down at night', secondsAgo: 5 * D },
     languages: langs(['HCL', 64], ['Bicep', 30], ['Shell', 6]),
   }),
@@ -347,13 +350,15 @@ export const mockHost: HostApi = {
   async gitFetchBackground(folder) {
     await delay(300, 700);
     const s = specOf(folder);
-    return !!s && !s.noGit && !s.gitError;
+    if (!s || s.noGit || s.gitError) return fail('fatal: not a git repository');
+    if (s.fetchError) return fail(s.fetchError);
+    return ok();
   },
   async gitRemote(folder: string, op: RemoteOp) {
     await delay(500, 900);
     const s = specOf(folder);
     if (!s || s.noGit || s.availability !== 'ok') return fail(`${folder} is not a git repository`);
-    if (op === 'fetch') return ok();
+    if (op === 'fetch') return s.fetchError ? fail(s.fetchError) : ok();
     if (s.remoteError && (op === 'pull' || op === 'push')) return fail(s.remoteError);
     if (op === 'pull') s.behind = 0;
     else s.ahead = 0;

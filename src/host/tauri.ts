@@ -17,7 +17,7 @@ export const tauriHost: HostApi = {
   gitStatus: (folder) => invoke<GitStatusRaw>('git_status', { folder }),
   gitWorktreeList: (folder) => invoke<GitRun>('git_worktree_list', { folder }),
   gitShortStatus: (folder) => invoke<GitRun>('git_short_status', { folder }),
-  gitFetchBackground: (folder) => invoke<boolean>('git_fetch_background', { folder }),
+  gitFetchBackground: (folder) => invoke<GitRun>('git_fetch_background', { folder }),
   gitRemote: (folder: string, op: RemoteOp) => invoke<GitRun>('git_remote', { folder, op }),
 
   pathKind: (path) => invoke<PathKind>('path_kind', { path }),

@@ -23,7 +23,7 @@ const fail = (stderr: string): GitRun => ({ ok: false, stdout: '', stderr, missi
 export interface FakeHost extends HostApi {
   repos: Map<string, FakeRepo>;
   files: Map<DataFile, string>;
-  calls: { remote: Array<{ folder: string; op: RemoteOp }>; backups: DataFile[]; writes: Array<{ name: DataFile; text: string }>; opened: string[][]; [k: string]: unknown };
+  calls: { remote: Array<{ folder: string; op: RemoteOp }>; background: string[]; backups: DataFile[]; writes: Array<{ name: DataFile; text: string }>; opened: string[][]; [k: string]: unknown };
   /** Paths `discoverRepos` returns. */
   discovered: string[];
   /** What `checkUpdate` returns, or rejects with when `checkError` is set. */
@@ -46,7 +46,7 @@ export function createFakeHost(repos: Record<string, FakeRepo> = {}, platform: '
   const host: FakeHost = {
     repos: repoMap,
     files: new Map(),
-    calls: { remote: [], backups: [], writes: [], opened: [] },
+    calls: { remote: [], background: [], backups: [], writes: [], opened: [] },
     discovered: [],
     update: null,
     installProgress: [[0, 1000], [500, 1000], [1000, 1000]],
@@ -80,8 +80,11 @@ export function createFakeHost(repos: Record<string, FakeRepo> = {}, platform: '
     async gitShortStatus() {
       return ok();
     },
-    async gitFetchBackground() {
-      return true;
+    async gitFetchBackground(folder) {
+      host.calls.background.push(folder);
+      const r = repoMap.get(folder);
+      if (!r) return fail('fatal: not a git repository');
+      return r.fetchError ? fail(r.fetchError) : ok();
     },
     async gitRemote(folder, op) {
       host.calls.remote.push({ folder, op });

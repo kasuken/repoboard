@@ -91,7 +91,8 @@ export function openSettings(board: BoardState): void {
   };
   const newWindow = check('Open projects in a new editor window', 'Ctrl/Cmd+click on a project does the opposite.', s.openInNewWindow);
   const autoScan = check('Scan on start and when the app regains focus', 'At most every 10 minutes.', s.autoScan);
-  const fetchOnOpen = check('Fetch in the background', 'Runs non-interactive git fetch when the app starts or the board is refreshed, so ahead and behind counts are real.', s.fetchOnOpen);
+  const fetchOnOpen = check('Fetch when the app starts', 'Also when you refresh the whole board. Repos fetched in the last 10 minutes are skipped.', s.fetchOnOpen);
+  const fetchInterval = h('input', { class: 'input num', type: 'number', min: '0', max: '1440', step: '1', value: String(s.fetchInterval) });
   const langs = check('Show a language bar on each project', 'A bounded, cached file scan.', s.detectLanguages);
   const updates = check('Check for updates automatically', 'Looks for a new version on GitHub when the app starts, at most once a day.', s.checkForUpdates);
   const tray = check('Closing the window keeps Repo Board in the tray', 'Off: closing the window quits the app.', s.closeToTray);
@@ -131,6 +132,7 @@ export function openSettings(board: BoardState): void {
       'Board',
       h('div', { class: 'field-row even' }, field('Default layout', view), field('Default sort', sort, 'Also orders the switcher.')),
       fetchOnOpen.el,
+      field('Fetch in the background every', h('div', { class: 'inline-unit' }, fetchInterval, h('span', { class: 'muted', text: 'minutes' })), 'Keeps ahead/behind counts current. Repos fetched recently by any tool (git, VS Code, the Repo Board extension) are skipped. 0 turns it off.'),
       h('div', { class: 'field-row even' }, field('Reuse git status for (minutes)', cache, '0 reads it every time.'), field('Max files per project', maxFiles, 'Upper bound for language detection, at least 100.')),
       langs.el,
     ),
@@ -170,6 +172,7 @@ export function openSettings(board: BoardState): void {
         defaultView: view.value as AppSettings['defaultView'],
         defaultSort: sort.value as AppSettings['defaultSort'],
         fetchOnOpen: fetchOnOpen.box.checked,
+        fetchInterval: clampInt(fetchInterval, 0, 1440, s.fetchInterval),
         cacheMinutes: clampInt(cache, 0, Number.MAX_SAFE_INTEGER, s.cacheMinutes),
         detectLanguages: langs.box.checked,
         maxFilesScanned: clampInt(maxFiles, 100, Number.MAX_SAFE_INTEGER, s.maxFilesScanned),

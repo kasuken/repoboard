@@ -6,10 +6,11 @@ import { displayPath, folderOf, pathKey } from '../domain/paths';
 import { EVENTS, type HostApi, type Launchers, type PlatformInfo, type TrayAction } from '../host/api';
 import type { AppSettings, BoardState, WebviewMessage, WorktreeAction } from '../ui/protocol';
 import { onWebviewMessage, post } from './bridge';
+import { AutoFetcher } from './autoFetch';
 import { CatalogStore } from './catalogStore';
 import { GitClient, RemoteOp, worktreeMainOf } from './git';
 import { getLog, log } from './log';
-import { Limiter, MetadataService } from './metadata';
+import { FETCH_MIN_INTERVAL_MS, Limiter, MetadataService } from './metadata';
 import * as notify from './notify';
 import { ProjectService } from './projectService';
 import { loadSettings, sanitizeSettings, saveSettings, scanRootsOf } from './settings';
@@ -33,6 +34,10 @@ export class App {
   updateCheckDelayMs = UPDATE_CHECK_DELAY_MS;
 
   private readonly updater: Updater;
+  readonly autoFetch: AutoFetcher;
+  /** True while Fetch all / Pull all runs; the scheduled fetch waits. */
+  private bulkRunning = false;
+  private fetchOffline = false;
   private updateTimer: ReturnType<typeof setTimeout> | undefined;
   private scanning = false;
   private lastAutoScan = 0;
@@ -53,6 +58,17 @@ export class App {
       cacheMs: () => this.settings.cacheMinutes * 60_000,
       detectLanguages: () => this.settings.detectLanguages,
       scanOptions: () => ({ ignoreDirs: this.settings.ignoreDirs, maxFiles: this.settings.maxFilesScanned }),
+    });
+    this.autoFetch = new AutoFetcher({
+      host,
+      meta: this.meta,
+      projects: () => this.projects.projects,
+      intervalMinutes: () => this.settings.fetchInterval,
+      busy: () => this.bulkRunning,
+      onOffline: (offline) => {
+        this.fetchOffline = offline;
+        if (this.started) this.postState();
+      },
     });
   }
 
@@ -144,6 +160,7 @@ export class App {
 
   dispose(): void {
     clearTimeout(this.updateTimer);
+    this.autoFetch.stop();
     void this.meta.persist();
     this.projects.dispose();
     for (const d of this.disposers.splice(0)) d();
@@ -193,6 +210,7 @@ export class App {
       launchers: this.launchers,
       editorName: this.editorName(),
       scanning: this.scanning,
+      fetchOffline: this.fetchOffline,
       gitAvailable: this.git.available,
       ignoredCount: catalog.ignoredPaths.length,
       dataFile: this.dataFile,
@@ -216,6 +234,7 @@ export class App {
     this.settings = sanitizeSettings({ ...next, lastUpdateCheck: this.settings.lastUpdateCheck });
     await saveSettings(this.host, this.settings);
     await this.applyHostSettings();
+    this.autoFetch.sync();
     this.postState();
   }
 
@@ -455,6 +474,8 @@ export class App {
 
   async gitOp(project: Project, op: RemoteOp): Promise<boolean> {
     const result = await notify.progress(`git ${op} · ${project.name}`, false, () => this.git.remote(folderOf(project.path), op));
+    // A failed pull is usually not a network failure (not fast-forwardable), so only fetches record an error.
+    if (op === 'fetch' || (op === 'pull' && result.ok)) this.noteFetch(project, result);
     if (!result.ok) {
       log(`[${op}] ${project.path}\n${result.message}`);
       void notify.error(`git ${op} failed for "${project.name}": ${firstLine(result.message)}`, 'Show log').then((c) => c && this.showLog());
@@ -463,11 +484,25 @@ export class App {
     return result.ok;
   }
 
+  private noteFetch(project: Project, result: { ok: boolean; message: string }): void {
+    this.meta.recordFetch(project.path, result);
+    if (result.ok) this.autoFetch.noteOnline();
+  }
+
   /**
    * Fetches every repo with an upstream (4 at a time, cancellable), then optionally fast-forwards
    * the ones that are behind and have no conflicts. There is deliberately no "push all".
    */
   async bulk(op: 'fetch' | 'pull'): Promise<void> {
+    this.bulkRunning = true;
+    try {
+      await this.bulkRun(op);
+    } finally {
+      this.bulkRunning = false;
+    }
+  }
+
+  private async bulkRun(op: 'fetch' | 'pull'): Promise<void> {
     await this.projects.ensureLoaded();
     // Read local state first for projects never seen, so non-repos and repos without upstream are skipped.
     await this.meta.refresh(this.projects.projects.filter((p) => !this.meta.get(p.path)).map((p) => p.path));
@@ -494,6 +529,7 @@ export class App {
               return;
             }
             const fetched = await this.git.remote(folderOf(project.path), 'fetch');
+            this.noteFetch(project, fetched);
             if (!fetched.ok) {
               failures.push({ project, message: fetched.message });
             }
@@ -505,6 +541,7 @@ export class App {
               } else {
                 const res = await this.git.remote(folderOf(project.path), 'pull');
                 if (res.ok) {
+                  this.noteFetch(project, res);
                   pulled++;
                 } else {
                   failures.push({ project, message: res.message });
@@ -622,7 +659,13 @@ export class App {
         await this.projects.ensureLoaded();
         this.started = true;
         this.postState();
-        this.refreshVisible(this.settings.fetchOnOpen);
+        // Local state first; the start-up fetch then goes through the scheduler so that being offline is one note,
+        // not a 'fetch failed' on every repo.
+        void this.meta
+          .refresh(this.projects.projects.map((p) => p.path))
+          .then(() => (this.settings.fetchOnOpen ? this.autoFetch.runCycle({ minAgeMs: FETCH_MIN_INTERVAL_MS }) : undefined))
+          .catch((e) => log(`[fetch] ${errorText(e)}`));
+        this.autoFetch.start();
         this.autoScanIfDue();
         this.scheduleUpdateCheck();
         return;
@@ -686,7 +729,10 @@ export class App {
         if (project) {
           await this.meta.refreshOne(project.path, { force: true, fetch: true });
         } else {
-          void this.meta.refresh(this.projects.projects.map((p) => p.path), { force: true, fetch: this.settings.fetchOnOpen });
+          void this.meta
+            .refresh(this.projects.projects.map((p) => p.path), { force: true })
+            .then(() => (this.settings.fetchOnOpen ? this.autoFetch.runCycle({ minAgeMs: 0 }) : undefined))
+            .catch((e) => log(`[fetch] ${errorText(e)}`));
           void this.scan({ notify: false }).catch((e) => log(`[scan] ${errorText(e)}`));
         }
         return;

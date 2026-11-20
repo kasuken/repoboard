@@ -31,6 +31,8 @@ export interface AppSettings {
   defaultSort: SortMode;
   /** Background `git fetch` when the app starts or the board is refreshed. */
   fetchOnOpen: boolean;
+  /** Background fetch cycle: minutes between fetches of each repo (0 = off, 0-1440). Repos fetched recently by any tool are skipped. */
+  fetchInterval: number;
   /** Minutes git status is reused (≥ 0). */
   cacheMinutes: number;
   detectLanguages: boolean;
@@ -71,6 +73,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultView: 'grid',
   defaultSort: 'recent',
   fetchOnOpen: true,
+  fetchInterval: 30,
   cacheMinutes: 5,
   detectLanguages: true,
   maxFilesScanned: 10000,
@@ -114,6 +117,8 @@ export interface BoardState {
   /** Name of the selected editor, e.g. "Visual Studio Code" (menu label "Open in Visual Studio Code"). */
   editorName: string;
   scanning: boolean;
+  /** The last background fetch cycle failed for every repo it tried (no network?); background fetch keeps retrying. */
+  fetchOffline: boolean;
   gitAvailable: boolean;
   /** Number of paths the user removed and discovery skips ("Forget removed repos" is enabled when > 0). */
   ignoredCount: number;

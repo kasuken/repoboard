@@ -70,6 +70,8 @@ export interface GitStatus {
   fetchedAt?: number;
   /** When the remote was last fetched by anyone (FETCH_HEAD / remote reflog mtime), merged with our own fetchedAt (ms). */
   lastFetchAt?: number;
+  /** Why the last fetch failed (credentials stripped, one line). Set by a failed fetch, cleared by the next successful one; only meaningful with an upstream. */
+  fetchError?: string;
   /** Human-readable reason git could not read the repo (e.g. dubious ownership). */
   error?: string;
   /** Linked worktrees of this repo (the main working tree itself is not listed). */

@@ -370,6 +370,11 @@ function renderFilters(): void {
     ...tagChips,
   ];
   filters.replaceChildren(...items.filter((x): x is Node => !!x));
+  if (b.fetchOffline) {
+    filters.append(
+      h('span', { class: 'offline-note muted small', title: 'The last background fetch failed for every repo it tried, so there is probably no network. Ahead and behind counts may be out of date until it works again.' }, icon('debug-disconnect'), 'Offline — background fetch paused'),
+    );
+  }
   if (!b.gitAvailable) filters.append(h('span', { class: 'warn-inline' }, icon('warning'), 'git was not found on PATH, so status is unavailable'));
 }
 
@@ -468,10 +473,11 @@ function gitLine(git: GitStatus, compact = false, project?: ProjectView): HTMLEl
   const fresh = fetchFreshness(git);
   if (fresh.kind !== 'none') {
     const warn = fresh.kind !== 'fresh';
+    const glyph = fresh.kind === 'failed' ? 'warning' : 'history';
     if (compact) {
-      if (warn) parts.push(h('span', { class: 'fetched warn', title: fresh.title, 'aria-label': fresh.label }, icon('history')));
+      if (warn) parts.push(h('span', { class: 'fetched warn', title: fresh.title, 'aria-label': fresh.label }, icon(glyph)));
     } else {
-      parts.push(h('span', { class: `fetched muted small${warn ? ' warn' : ''}`, title: fresh.title }, warn ? icon('history') : null, fresh.label));
+      parts.push(h('span', { class: `fetched muted small${warn ? ' warn' : ''}`, title: fresh.title }, warn ? icon(glyph) : null, fresh.label));
     }
   }
   if (!git.upstream && !compact) parts.push(h('span', { class: 'muted small', text: 'local only' }));

@@ -148,6 +148,21 @@ export function remoteToWebUrl(remote: string | undefined): string | undefined {
   return `https://${host}/${pathPart}`;
 }
 
+/**
+ * One short, safe line out of a failed fetch's stderr: the first `fatal:` / `error:` line when there is one,
+ * else the first line that is not a hint. Credentials in URLs are removed; at most 200 characters.
+ */
+export function cleanFetchError(stderr: string): string {
+  const lines = stderr
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const line = lines.find((l) => /^(fatal|error):/i.test(l)) ?? lines.find((l) => !/^(hint|warning):/i.test(l)) ?? lines[0] ?? '';
+  // scheme://user:pass@host and scheme://user@host become scheme://host. Greedy up to the last @ of the authority, so passwords containing @ go too.
+  const safe = line.replace(/\b([a-z][a-z0-9+.-]*:\/\/)[^\s/]*@/gi, '$1');
+  return safe.length > 200 ? `${safe.slice(0, 199)}…` : safe;
+}
+
 /** Turns git's stderr into a short reason the UI can show. */
 export function describeGitError(stderr: string): string | undefined {
   if (/dubious ownership/i.test(stderr)) {

@@ -79,7 +79,7 @@ async fn git_short_status(folder: String) -> Result<git::GitRun, String> {
 }
 
 #[tauri::command]
-async fn git_fetch_background(folder: String) -> Result<bool, String> {
+async fn git_fetch_background(folder: String) -> Result<git::GitRun, String> {
     blocking(move || Ok(git::fetch_background(&PathBuf::from(folder)))).await
 }
 

@@ -2,6 +2,7 @@ import type { Availability, GitStatus, LanguageShare, ProjectMeta } from '../dom
 import { LANGUAGE_EXTENSIONS, languageByName, toShares, type LanguageDef } from '../domain/languages';
 import { folderOf, pathKey } from '../domain/paths';
 import type { HostApi } from '../host/api';
+import { cleanFetchError } from '../domain/gitParse';
 import { Emitter } from './emitter';
 import { GitClient } from './git';
 
@@ -45,7 +46,7 @@ export interface RefreshOptions {
 }
 
 const LANGUAGE_TTL_MS = 24 * 3_600_000;
-const FETCH_MIN_INTERVAL_MS = 10 * 60_000;
+export const FETCH_MIN_INTERVAL_MS = 10 * 60_000;
 const PERSIST_DEBOUNCE_MS = 1500;
 
 type MetadataEvents = {
@@ -111,7 +112,7 @@ export class MetadataService extends Emitter<MetadataEvents> {
     const wantsFetch =
       options.fetch === true &&
       !!previous?.git?.upstream &&
-      (options.force || now - (previous.git.fetchedAt ?? 0) > FETCH_MIN_INTERVAL_MS);
+      (options.force || now - (previous.git.lastFetchAt ?? previous.git.fetchedAt ?? 0) > FETCH_MIN_INTERVAL_MS);
 
     if (localFresh && !options.force && !wantsFetch) {
       return;
@@ -123,10 +124,12 @@ export class MetadataService extends Emitter<MetadataEvents> {
 
       if (options.fetch && meta.availability === 'ok' && meta.git?.upstream && (wantsFetch || !previous)) {
         const fetched = await this.network.run(() => this.git.fetch(folderOf(projectPath)));
-        if (fetched) {
+        if (fetched.ok) {
           const git = await this.local.run(() => this.git.status(folderOf(projectPath)));
           meta = { ...meta, git: git ? withFetchedAt(git, Date.now()) : null };
           this.store(key, meta);
+        } else {
+          this.recordFetch(projectPath, fetched);
         }
       }
     } catch {
@@ -162,6 +165,10 @@ export class MetadataService extends Emitter<MetadataEvents> {
       git.fetchedAt = previous.git.fetchedAt;
       if (git.upstream) git.lastFetchAt = Math.max(git.lastFetchAt ?? 0, git.fetchedAt);
     }
+    // A plain status read says nothing about the network: keep what the last fetch told us.
+    if (git && git.upstream && previous?.git?.fetchError) {
+      git.fetchError = previous.git.fetchError;
+    }
     const meta: ProjectMeta = {
       availability,
       git,
@@ -173,6 +180,54 @@ export class MetadataService extends Emitter<MetadataEvents> {
       meta.logo = logo;
     }
     return meta;
+  }
+
+  /**
+   * Records the outcome of a fetch that ran elsewhere (the user's fetch / pull, or a failed background fetch) on the
+   * cached git status: success clears `fetchError` and stamps `fetchedAt`; failure stores a cleaned `fetchError`.
+   * `quietFailure` records only successes (the scheduler uses it when a cycle looks like "offline").
+   */
+  recordFetch(projectPath: string, result: { ok: boolean; message: string }, options: { quietFailure?: boolean } = {}): void {
+    const key = pathKey(projectPath);
+    const previous = this.cache[key];
+    if (!previous?.git) return;
+    let git: GitStatus;
+    if (result.ok) {
+      git = withFetchedAt(previous.git, Date.now());
+    } else if (options.quietFailure) {
+      return;
+    } else {
+      git = { ...previous.git, fetchError: cleanFetchError(result.message) || 'git fetch failed' };
+    }
+    this.store(key, { ...previous, git });
+  }
+
+  /**
+   * Scheduled background fetch of one repo: runs through the same network limiter and in-flight map as refreshes,
+   * so it can never overlap a Fetch all / Pull all or a manual refresh of the same repo. A success re-reads the status
+   * and clears `fetchError`; a failure is recorded unless `quietFailure`. 'skipped' = the repo is already being refreshed.
+   */
+  async fetchInBackground(projectPath: string, options: { quietFailure?: boolean } = {}): Promise<{ outcome: 'ok' | 'failed' | 'skipped'; message: string }> {
+    const key = pathKey(projectPath);
+    if (this.inFlight.has(key)) return { outcome: 'skipped', message: '' };
+    let result: { outcome: 'ok' | 'failed'; message: string } = { outcome: 'failed', message: '' };
+    const job = (async () => {
+      try {
+        const fetched = await this.network.run(() => this.git.fetch(folderOf(projectPath)));
+        result = { outcome: fetched.ok ? 'ok' : 'failed', message: fetched.message };
+        if (fetched.ok) {
+          const meta = await this.local.run(() => this.readLocal(projectPath, this.cache[key]));
+          this.store(key, meta.git ? { ...meta, git: withFetchedAt(meta.git, Date.now()) } : meta);
+        } else if (!options.quietFailure) {
+          this.recordFetch(projectPath, fetched);
+        }
+      } catch (e) {
+        result = { outcome: 'failed', message: e instanceof Error ? e.message : String(e) };
+      }
+    })().finally(() => this.inFlight.delete(key));
+    this.inFlight.set(key, job);
+    await job;
+    return result;
   }
 
   /** Bytes per language from Rust → GitHub-style shares. */
@@ -235,7 +290,8 @@ export class MetadataService extends Emitter<MetadataEvents> {
   }
 }
 
-/** Records our own fetch; it counts as "last fetched" even when git did not write FETCH_HEAD. */
+/** Records our own successful fetch: it counts as "last fetched" and clears any earlier fetch error. */
 export function withFetchedAt(git: GitStatus, at: number): GitStatus {
-  return { ...git, fetchedAt: at, ...(git.upstream ? { lastFetchAt: Math.max(git.lastFetchAt ?? 0, at) } : {}) };
+  const { fetchError: _cleared, ...rest } = git;
+  return { ...rest, fetchedAt: at, ...(git.upstream ? { lastFetchAt: Math.max(git.lastFetchAt ?? 0, at) } : {}) };
 }

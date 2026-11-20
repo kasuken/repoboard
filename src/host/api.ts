@@ -109,8 +109,11 @@ export interface HostApi {
   gitWorktreeList(folder: string): Promise<GitRun>;
   /** Rust: git_short_status(folder) → `status --porcelain=v2` (no --branch) with READ_FLAGS; used per worktree. */
   gitShortStatus(folder: string): Promise<GitRun>;
-  /** Rust: git_fetch_background(folder) → READ_FLAGS + `fetch --quiet --no-tags --no-write-fetch-head`, 30 s timeout. */
-  gitFetchBackground(folder: string): Promise<boolean>;
+  /**
+   * Rust: git_fetch_background(folder) → READ_FLAGS + `fetch --quiet --no-tags`, 30 s timeout. It writes FETCH_HEAD
+   * (no `--no-write-fetch-head`), so the timestamp every other tool reads stays current. On failure stderr holds the reason.
+   */
+  gitFetchBackground(folder: string): Promise<GitRun>;
   /**
    * Rust: git_remote(folder, op) — a fetch / pull / push the user asked for. Runs like the user's own git
    * (hooks apply) with `-c core.fsmonitor=false -c core.quotepath=off`, non-interactive env, 180 s timeout.

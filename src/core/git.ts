@@ -129,11 +129,13 @@ export class GitClient {
   }
 
   /** Background fetch of the current branch's remote. Non-interactive; hooks and fsmonitor off (in Rust). */
-  async fetch(folder: string): Promise<boolean> {
+  async fetch(folder: string): Promise<{ ok: boolean; message: string }> {
     try {
-      return await this.host.gitFetchBackground(folder);
-    } catch {
-      return false;
+      const r = await this.host.gitFetchBackground(folder);
+      if (r.missingGit) return { ok: false, message: 'git was not found on PATH.' };
+      return { ok: r.ok, message: r.ok ? '' : r.stderr.trim() || 'git fetch failed' };
+    } catch (e) {
+      return { ok: false, message: e instanceof Error ? e.message : String(e) };
     }
   }
 

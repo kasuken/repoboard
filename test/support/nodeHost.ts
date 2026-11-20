@@ -40,7 +40,7 @@ export function createNodeHost(): HostApi {
     },
     gitWorktreeList: (folder) => read(folder, 'worktree', 'list', '--porcelain'),
     gitShortStatus: (folder) => read(folder, 'status', '--porcelain=v2'),
-    gitFetchBackground: async (folder) => (await read(folder, 'fetch', '--quiet', '--no-tags', '--no-write-fetch-head')).ok,
+    gitFetchBackground: (folder) => read(folder, 'fetch', '--quiet', '--no-tags'),
     gitRemote: (folder, op) => {
       const args = { fetch: ['fetch', '--quiet'], pull: ['pull', '--ff-only', '--quiet'], push: ['push', '--quiet'] }[op];
       return run(folder, ['-c', 'core.fsmonitor=false', '-c', 'core.quotepath=off', ...args], 180_000);

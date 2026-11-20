@@ -309,6 +309,7 @@ kbd {
 .b-clean .codicon { color: var(--st-clean); }
 .fetched { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
 .fetched .codicon { font-size: 12px; }
+.offline-note { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; white-space: nowrap; }
 .fetched.warn { color: var(--vscode-editorWarning-foreground); }
 
 .commit { display: flex; gap: 10px; align-items: baseline; font-size: 12px; color: var(--muted); min-width: 0; }

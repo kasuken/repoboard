@@ -102,10 +102,12 @@ pub fn short_status(folder: &Path) -> GitRun {
     read(folder, &["status", "--porcelain=v2"])
 }
 
-pub fn fetch_background(folder: &Path) -> bool {
+/// Background fetch. It writes FETCH_HEAD on purpose: that timestamp is what every other tool (and our own
+/// "fetched 3d ago" hint) reads to know when the remote was last contacted.
+pub fn fetch_background(folder: &Path) -> GitRun {
     let mut all: Vec<&str> = READ_FLAGS.to_vec();
-    all.extend_from_slice(&["fetch", "--quiet", "--no-tags", "--no-write-fetch-head"]);
-    run_git(folder, &all, FETCH_TIMEOUT).ok
+    all.extend_from_slice(&["fetch", "--quiet", "--no-tags"]);
+    run_git(folder, &all, FETCH_TIMEOUT)
 }
 
 /// The fixed argument list for a user-requested remote operation; anything else is rejected.
