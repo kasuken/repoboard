@@ -1,4 +1,4 @@
-import type { Availability, LanguageShare, ProjectMeta } from '../domain/model';
+import type { Availability, GitStatus, LanguageShare, ProjectMeta } from '../domain/model';
 import { LANGUAGE_EXTENSIONS, languageByName, toShares, type LanguageDef } from '../domain/languages';
 import { folderOf, pathKey } from '../domain/paths';
 import type { HostApi } from '../host/api';
@@ -125,7 +125,7 @@ export class MetadataService extends Emitter<MetadataEvents> {
         const fetched = await this.network.run(() => this.git.fetch(folderOf(projectPath)));
         if (fetched) {
           const git = await this.local.run(() => this.git.status(folderOf(projectPath)));
-          meta = { ...meta, git: git ? { ...git, fetchedAt: Date.now() } : null };
+          meta = { ...meta, git: git ? withFetchedAt(git, Date.now()) : null };
           this.store(key, meta);
         }
       }
@@ -160,6 +160,7 @@ export class MetadataService extends Emitter<MetadataEvents> {
     ]);
     if (git && previous?.git?.fetchedAt) {
       git.fetchedAt = previous.git.fetchedAt;
+      if (git.upstream) git.lastFetchAt = Math.max(git.lastFetchAt ?? 0, git.fetchedAt);
     }
     const meta: ProjectMeta = {
       availability,
@@ -232,4 +233,9 @@ export class MetadataService extends Emitter<MetadataEvents> {
       // The cache is disposable.
     }
   }
+}
+
+/** Records our own fetch; it counts as "last fetched" even when git did not write FETCH_HEAD. */
+export function withFetchedAt(git: GitStatus, at: number): GitStatus {
+  return { ...git, fetchedAt: at, ...(git.upstream ? { lastFetchAt: Math.max(git.lastFetchAt ?? 0, at) } : {}) };
 }

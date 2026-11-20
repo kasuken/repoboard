@@ -66,6 +66,73 @@ pub fn has_linked_worktrees(folder: &Path) -> bool {
     fs::read_dir(folder.join(".git").join("worktrees")).map(|mut d| d.next().is_some()).unwrap_or(false)
 }
 
+fn mtime_ms(path: &Path) -> Option<f64> {
+    let t = fs::metadata(path).ok()?.modified().ok()?;
+    let d = t.duration_since(std::time::UNIX_EPOCH).ok()?;
+    Some(d.as_secs_f64() * 1000.0)
+}
+
+/// The repo's git dir and common dir, resolved from `<folder>/.git` without running git.
+fn git_dirs(folder: &Path) -> Option<(PathBuf, PathBuf)> {
+    let dot = folder.join(".git");
+    let m = fs::symlink_metadata(&dot).ok()?;
+    if m.is_dir() {
+        return Some((dot.clone(), dot));
+    }
+    let text = git_dot_file(folder)?;
+    let line = text.lines().find_map(|l| l.strip_prefix("gitdir:"))?.trim();
+    if line.is_empty() {
+        return None;
+    }
+    let gitdir = folder.join(line);
+    let common = match fs::read_to_string(gitdir.join("commondir")) {
+        Ok(c) if !c.trim().is_empty() => gitdir.join(c.trim()),
+        _ => gitdir.clone(),
+    };
+    Some((gitdir, common))
+}
+
+/// When the remote was last fetched by anyone, in ms since the epoch, read from file times only:
+/// the newest of every `FETCH_HEAD` (own, common, linked worktrees) and the remote-tracking reflogs
+/// (which `git clone` writes, so a fresh clone still has a time). None when nothing exists.
+pub fn git_last_fetch(folder: &Path) -> Option<f64> {
+    let (gitdir, common) = git_dirs(folder)?;
+    let mut newest: Option<f64> = None;
+    let mut see = |t: Option<f64>| {
+        if let Some(t) = t {
+            newest = Some(newest.map_or(t, |n| n.max(t)));
+        }
+    };
+    see(mtime_ms(&gitdir.join("FETCH_HEAD")));
+    see(mtime_ms(&common.join("FETCH_HEAD")));
+    if let Ok(rd) = fs::read_dir(common.join("worktrees")) {
+        for e in rd.flatten().take(500) {
+            see(mtime_ms(&e.path().join("FETCH_HEAD")));
+        }
+    }
+    let mut queue: VecDeque<(PathBuf, usize)> = VecDeque::new();
+    queue.push_back((common.join("logs").join("refs").join("remotes"), 0));
+    let mut seen = 0usize;
+    'walk: while let Some((dir, depth)) = queue.pop_front() {
+        let Ok(rd) = fs::read_dir(&dir) else { continue };
+        for e in rd.flatten() {
+            seen += 1;
+            if seen > 2000 {
+                break 'walk;
+            }
+            let Ok(ft) = e.file_type() else { continue };
+            if ft.is_dir() {
+                if depth < 6 {
+                    queue.push_back((e.path(), depth + 1));
+                }
+            } else if ft.is_file() {
+                see(mtime_ms(&e.path()));
+            }
+        }
+    }
+    newest
+}
+
 /// 'ok' if it exists; 'missing' if its root (drive / share / mount) exists; else 'offline'.
 pub fn availability(path: &Path) -> &'static str {
     if fs::metadata(path).is_ok() {
@@ -392,5 +459,56 @@ mod tests {
         assert!(has_linked_worktrees(&t.0.join("repo")));
         assert_eq!(availability(&t.0.join("d")), "ok");
         assert_eq!(availability(&t.0.join("gone")), "missing");
+    }
+
+    fn set_mtime(p: &Path, secs_ago: u64) {
+        let f = fs::OpenOptions::new().write(true).open(p).unwrap();
+        f.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(secs_ago)).unwrap();
+    }
+
+    fn age_secs(ms: f64) -> i64 {
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs_f64() * 1000.0;
+        ((now - ms) / 1000.0).round() as i64
+    }
+
+    #[test]
+    fn last_fetch_from_fetch_head_in_a_normal_repo() {
+        let t = TempDir::new();
+        t.dir("repo/.git");
+        assert_eq!(git_last_fetch(&t.0.join("repo")), None);
+        let f = t.file("repo/.git/FETCH_HEAD", b"x");
+        set_mtime(&f, 3600);
+        let age = age_secs(git_last_fetch(&t.0.join("repo")).unwrap());
+        assert!((3595..=3660).contains(&age), "age {age}");
+        assert_eq!(git_last_fetch(&t.0.join("missing")), None);
+    }
+
+    #[test]
+    fn last_fetch_in_a_linked_worktree_uses_common_dir_and_sibling_worktrees() {
+        let t = TempDir::new();
+        t.dir("main/.git/worktrees/wt");
+        t.dir("main/.git/worktrees/other");
+        t.file("main/.git/worktrees/wt/commondir", b"../..\n");
+        t.file("wt/.git", b"gitdir: ../main/.git/worktrees/wt\n");
+        assert_eq!(git_last_fetch(&t.0.join("wt")), None);
+        set_mtime(&t.file("main/.git/FETCH_HEAD", b"x"), 7200);
+        set_mtime(&t.file("main/.git/worktrees/other/FETCH_HEAD", b"x"), 600);
+        set_mtime(&t.file("main/.git/worktrees/wt/FETCH_HEAD", b"x"), 86_400);
+        let age = age_secs(git_last_fetch(&t.0.join("wt")).unwrap());
+        assert!((595..=660).contains(&age), "age {age}");
+        // The main repo sees its linked worktrees' fetches too.
+        let age = age_secs(git_last_fetch(&t.0.join("main")).unwrap());
+        assert!((595..=660).contains(&age), "age {age}");
+    }
+
+    #[test]
+    fn last_fetch_falls_back_to_remote_reflogs() {
+        let t = TempDir::new();
+        t.dir("repo/.git");
+        set_mtime(&t.file("repo/.git/logs/refs/remotes/origin/HEAD", b"x"), 1000);
+        set_mtime(&t.file("repo/.git/logs/refs/remotes/origin/feature/deep/topic", b"x"), 500);
+        set_mtime(&t.file("repo/.git/logs/HEAD", b"x"), 10);
+        let age = age_secs(git_last_fetch(&t.0.join("repo")).unwrap());
+        assert!((495..=560).contains(&age), "age {age}");
     }
 }

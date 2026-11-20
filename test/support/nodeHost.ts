@@ -69,6 +69,55 @@ export function createNodeHost(): HostApi {
         return false;
       }
     },
+    async gitLastFetch(folder) {
+      const mtime = async (p: string) => {
+        try {
+          return (await fs.stat(p)).mtimeMs;
+        } catch {
+          return null;
+        }
+      };
+      let gitdir = path.join(folder, '.git');
+      let common = gitdir;
+      try {
+        if ((await fs.lstat(gitdir)).isFile()) {
+          const m = /^gitdir:\s*(.+)$/m.exec(await fs.readFile(gitdir, 'utf8'));
+          if (!m) return null;
+          gitdir = path.resolve(folder, m[1]!.trim());
+          common = gitdir;
+          try {
+            const c = (await fs.readFile(path.join(gitdir, 'commondir'), 'utf8')).trim();
+            if (c) common = path.resolve(gitdir, c);
+          } catch {
+            /* no commondir */
+          }
+        }
+      } catch {
+        return null;
+      }
+      const times: Array<number | null> = [await mtime(path.join(gitdir, 'FETCH_HEAD')), await mtime(path.join(common, 'FETCH_HEAD'))];
+      try {
+        for (const w of await fs.readdir(path.join(common, 'worktrees'))) times.push(await mtime(path.join(common, 'worktrees', w, 'FETCH_HEAD')));
+      } catch {
+        /* none */
+      }
+      const walk = async (dir: string, depth: number): Promise<void> => {
+        let entries;
+        try {
+          entries = await fs.readdir(dir, { withFileTypes: true });
+        } catch {
+          return;
+        }
+        for (const e of entries) {
+          if (e.isDirectory()) {
+            if (depth < 6) await walk(path.join(dir, e.name), depth + 1);
+          } else if (e.isFile()) times.push(await mtime(path.join(dir, e.name)));
+        }
+      };
+      await walk(path.join(common, 'logs', 'refs', 'remotes'), 0);
+      const found = times.filter((t): t is number => t !== null);
+      return found.length ? Math.max(...found) : null;
+    },
     availability: unsupported('availability'),
     discoverRepos: unsupported('discoverRepos'),
     scanLanguages: unsupported('scanLanguages'),

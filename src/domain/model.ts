@@ -68,6 +68,8 @@ export interface GitStatus {
   webUrl?: string;
   /** When ahead/behind was last compared against a fresh `git fetch` (ms). */
   fetchedAt?: number;
+  /** When the remote was last fetched by anyone (FETCH_HEAD / remote reflog mtime), merged with our own fetchedAt (ms). */
+  lastFetchAt?: number;
   /** Human-readable reason git could not read the repo (e.g. dubious ownership). */
   error?: string;
   /** Linked worktrees of this repo (the main working tree itself is not listed). */

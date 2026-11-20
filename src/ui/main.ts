@@ -1,4 +1,5 @@
 import { Collection, GitStatus, ProjectMeta, SORT_MODES, SortMode, ViewMode, changedFiles, initialsFor, tagHue } from '../domain/model';
+import { fetchFreshness, isFetchStale } from '../domain/freshness';
 import { fieldsOf, matchScore, relativeTime, sortProjects } from '../domain/search';
 import type { BoardState, ProjectEdit, ProjectView } from './protocol';
 import { onHostMessage, send } from '../core/bridge';
@@ -21,7 +22,7 @@ function loadUi(): Partial<UiState> {
   }
 }
 
-type Filter = 'all' | 'changes' | 'behind' | 'ahead' | 'missing';
+type Filter = 'all' | 'changes' | 'behind' | 'ahead' | 'stale' | 'missing';
 interface UiState {
   query: string;
   sort?: SortMode;
@@ -92,6 +93,8 @@ function matchesFilter(p: ProjectView, filter: Filter): boolean {
       return (git?.behind ?? 0) > 0;
     case 'ahead':
       return (git?.ahead ?? 0) > 0;
+    case 'stale':
+      return isFetchStale(git);
     case 'missing':
       return !!meta && meta.availability !== 'ok';
   }
@@ -362,6 +365,7 @@ function renderFilters(): void {
     chip('behind', 'behind', 'f-behind'),
     chip('ahead', 'ahead', 'f-ahead'),
     chip('missing', 'unavailable', 'f-missing'),
+    chip('stale', 'not fetched recently', 'f-stale'),
     tagChips.length ? h('span', { class: 'filters-gap' }) : null,
     ...tagChips,
   ];
@@ -459,7 +463,16 @@ function gitLine(git: GitStatus, compact = false, project?: ProjectView): HTMLEl
     );
   }
   if (!changes && !git.behind && !git.ahead && !git.conflicts && git.upstream && !compact) {
-    parts.push(h('span', { class: 'badge b-clean', title: `In sync with ${git.upstream}${git.fetchedAt ? `, fetched ${relativeTime(git.fetchedAt)}` : ''}` }, icon('check'), 'in sync'));
+    parts.push(h('span', { class: 'badge b-clean', title: `In sync with ${git.upstream}` }, icon('check'), 'in sync'));
+  }
+  const fresh = fetchFreshness(git);
+  if (fresh.kind !== 'none') {
+    const warn = fresh.kind !== 'fresh';
+    if (compact) {
+      if (warn) parts.push(h('span', { class: 'fetched warn', title: fresh.title, 'aria-label': fresh.label }, icon('history')));
+    } else {
+      parts.push(h('span', { class: `fetched muted small${warn ? ' warn' : ''}`, title: fresh.title }, warn ? icon('history') : null, fresh.label));
+    }
   }
   if (!git.upstream && !compact) parts.push(h('span', { class: 'muted small', text: 'local only' }));
   return h('div', { class: 'git' }, ...parts);

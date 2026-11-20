@@ -11,6 +11,8 @@ export interface FakeRepo {
   availability?: Availability;
   /** `git pull` fails with this message. */
   pullError?: string;
+  /** What `gitLastFetch` returns (ms); null/absent = never fetched. */
+  lastFetch?: number | null;
   /** `git fetch` fails with this message. */
   fetchError?: string;
 }
@@ -102,6 +104,9 @@ export function createFakeHost(repos: Record<string, FakeRepo> = {}, platform: '
     },
     async hasLinkedWorktrees() {
       return false;
+    },
+    async gitLastFetch(folder) {
+      return repoMap.get(folder)?.lastFetch ?? null;
     },
     async availability(path) {
       return repoMap.get(path)?.availability ?? 'ok';

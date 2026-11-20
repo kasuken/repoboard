@@ -106,6 +106,11 @@ async fn has_linked_worktrees(folder: String) -> Result<bool, String> {
 }
 
 #[tauri::command]
+async fn git_last_fetch(folder: String) -> Result<Option<f64>, String> {
+    blocking(move || Ok(fsops::git_last_fetch(&PathBuf::from(folder)))).await
+}
+
+#[tauri::command]
 async fn availability(path: String) -> Result<&'static str, String> {
     blocking(move || Ok(fsops::availability(&PathBuf::from(path)))).await
 }
@@ -286,6 +291,7 @@ pub fn run() {
             path_kind,
             git_dot_file,
             has_linked_worktrees,
+            git_last_fetch,
             availability,
             discover_repos,
             scan_languages,

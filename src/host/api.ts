@@ -126,6 +126,11 @@ export interface HostApi {
   gitDotFile(folder: string): Promise<string | null>;
   /** Rust: has_linked_worktrees(folder) — `<folder>/.git/worktrees` exists and is non-empty. */
   hasLinkedWorktrees(folder: string): Promise<boolean>;
+  /**
+   * Rust: git_last_fetch(folder) - ms since epoch of the newest FETCH_HEAD (own, common dir, linked worktrees)
+   * or remote-tracking reflog file under the repo's git dirs. No process is spawned; null when none exists.
+   */
+  gitLastFetch(folder: string): Promise<number | null>;
   /** Rust: availability(path) — 'ok' if it exists; 'missing' if its root (drive / share / mount) exists; else 'offline'. */
   availability(path: string): Promise<Availability>;
   /**

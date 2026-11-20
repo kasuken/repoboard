@@ -43,7 +43,7 @@ export class GitClient {
     if (this.gitMissing || !(await isRepo(this.host, folder))) {
       return null;
     }
-    const { status: st, log, stash, remotes } = await this.host.gitStatus(folder);
+    const [{ status: st, log, stash, remotes }, lastFetch] = await Promise.all([this.host.gitStatus(folder), Promise.allSettled([this.host.gitLastFetch(folder)]).then((r) => r[0]!)]);
     if (st.missingGit) {
       this.gitMissing = true;
       return null;
@@ -69,6 +69,10 @@ export class GitClient {
     };
     if (parsed.upstream) {
       status.upstream = parsed.upstream;
+      const last = lastFetch.status === 'fulfilled' ? lastFetch.value : null;
+      if (typeof last === 'number' && last > 0) {
+        status.lastFetchAt = last;
+      }
     }
     const commit = log.ok ? parseLogLine(log.stdout) : undefined;
     if (commit) {

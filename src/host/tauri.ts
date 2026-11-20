@@ -23,6 +23,7 @@ export const tauriHost: HostApi = {
   pathKind: (path) => invoke<PathKind>('path_kind', { path }),
   gitDotFile: (folder) => invoke<string | null>('git_dot_file', { folder }),
   hasLinkedWorktrees: (folder) => invoke<boolean>('has_linked_worktrees', { folder }),
+  gitLastFetch: (folder) => invoke<number | null>('git_last_fetch', { folder }),
   availability: (path) => invoke<Availability>('availability', { path }),
   discoverRepos: (roots, maxDepth, ignoreDirs) => invoke<string[]>('discover_repos', { roots, maxDepth, ignoreDirs }),
   scanLanguages: (folder, extensions, ignoreDirs, maxFiles) =>

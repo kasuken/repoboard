@@ -44,6 +44,8 @@ interface RepoSpec {
   /** Language name → bytes. */
   languages: Record<string, number>;
   logo?: string;
+  /** Last fetch, ms ago. null = never fetched; undefined = a few minutes ago. */
+  fetchedMsAgo?: number | null;
   /** Pull / push fail with this message (simulates a diverged branch or a rejected push). */
   remoteError?: string;
 }
@@ -99,6 +101,7 @@ const SPECS: RepoSpec[] = [
     logo: logoSvg('D', '#57ab5a'),
   }),
   repo('payments-api', {
+    fetchedMsAgo: 3 * D * 1000,
     behind: 4,
     commit: { subject: 'Retry webhooks with exponential backoff', secondsAgo: 1 * D },
     remote: 'git@ssh.dev.azure.com:v3/acme/commerce/payments-api',
@@ -117,6 +120,7 @@ const SPECS: RepoSpec[] = [
     remoteError: 'fatal: Not possible to fast-forward, aborting.',
   }),
   repo('acme-infra', {
+    fetchedMsAgo: 14 * D * 1000,
     commit: { subject: 'Scale staging down at night', secondsAgo: 5 * D },
     languages: langs(['HCL', 64], ['Bicep', 30], ['Shell', 6]),
   }),
@@ -127,6 +131,7 @@ const SPECS: RepoSpec[] = [
     languages: langs(['TypeScript', 100]),
   }),
   repo('nightfall-theme', {
+    fetchedMsAgo: null,
     commit: { subject: 'Softer selection background', secondsAgo: 20 * D },
     languages: langs(['JavaScript', 100]),
   }),
@@ -369,6 +374,12 @@ export const mockHost: HostApi = {
   async hasLinkedWorktrees(folder) {
     await delay(2, 10);
     return (specOf(folder)?.worktrees.length ?? 0) > 0;
+  },
+  async gitLastFetch(folder) {
+    await delay(2, 10);
+    const s = specOf(folder);
+    if (!s || s.noGit || !s.upstream || s.fetchedMsAgo === null) return null;
+    return Date.now() - (s.fetchedMsAgo ?? (5 + (s.path.length % 50)) * 60_000);
   },
   async availability(path): Promise<Availability> {
     await delay(2, 20);

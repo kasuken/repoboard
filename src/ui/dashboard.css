@@ -199,6 +199,7 @@ kbd {
 .f-behind .chip-n { color: var(--st-behind); }
 .f-ahead .chip-n { color: var(--st-ahead); }
 .f-missing .chip-n { color: var(--st-missing); }
+.f-stale .chip-n { color: var(--vscode-editorWarning-foreground); }
 .chip.tag { color: hsl(var(--hue) 55% 62%); border-color: hsl(var(--hue) 40% 45% / .45); }
 .chip.tag.on { background: hsl(var(--hue) 50% 50% / .16); border-color: hsl(var(--hue) 55% 60%); }
 .warn-inline { display: inline-flex; gap: 6px; align-items: center; color: var(--st-behind); font-size: 12px; margin-left: 8px; }
@@ -306,6 +307,9 @@ kbd {
 .b-stash { color: var(--muted); font-weight: 500; }
 .b-clean { color: var(--muted); font-weight: 400; }
 .b-clean .codicon { color: var(--st-clean); }
+.fetched { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+.fetched .codicon { font-size: 12px; }
+.fetched.warn { color: var(--vscode-editorWarning-foreground); }
 
 .commit { display: flex; gap: 10px; align-items: baseline; font-size: 12px; color: var(--muted); min-width: 0; }
 .commit .subject { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); opacity: .8; }
