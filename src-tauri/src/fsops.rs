@@ -72,6 +72,17 @@ fn mtime_ms(path: &Path) -> Option<f64> {
     Some(d.as_secs_f64() * 1000.0)
 }
 
+/// mtime of a FETCH_HEAD that records a successful fetch. A failed `git fetch` truncates FETCH_HEAD to zero bytes
+/// (and so bumps its mtime), while a successful one always lists the fetched refs: an empty file is not a fetch.
+fn fetch_head_ms(path: &Path) -> Option<f64> {
+    let m = fs::metadata(path).ok()?;
+    if m.len() == 0 {
+        return None;
+    }
+    let d = m.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?;
+    Some(d.as_secs_f64() * 1000.0)
+}
+
 /// The repo's git dir and common dir, resolved from `<folder>/.git` without running git.
 fn git_dirs(folder: &Path) -> Option<(PathBuf, PathBuf)> {
     let dot = folder.join(".git");
@@ -103,11 +114,11 @@ pub fn git_last_fetch(folder: &Path) -> Option<f64> {
             newest = Some(newest.map_or(t, |n| n.max(t)));
         }
     };
-    see(mtime_ms(&gitdir.join("FETCH_HEAD")));
-    see(mtime_ms(&common.join("FETCH_HEAD")));
+    see(fetch_head_ms(&gitdir.join("FETCH_HEAD")));
+    see(fetch_head_ms(&common.join("FETCH_HEAD")));
     if let Ok(rd) = fs::read_dir(common.join("worktrees")) {
         for e in rd.flatten().take(500) {
-            see(mtime_ms(&e.path().join("FETCH_HEAD")));
+            see(fetch_head_ms(&e.path().join("FETCH_HEAD")));
         }
     }
     let mut queue: VecDeque<(PathBuf, usize)> = VecDeque::new();
@@ -481,6 +492,14 @@ mod tests {
         let age = age_secs(git_last_fetch(&t.0.join("repo")).unwrap());
         assert!((3595..=3660).contains(&age), "age {age}");
         assert_eq!(git_last_fetch(&t.0.join("missing")), None);
+    }
+
+    #[test]
+    fn an_empty_fetch_head_left_by_a_failed_fetch_is_not_a_fetch() {
+        let t = TempDir::new();
+        t.dir("repo/.git");
+        t.file("repo/.git/FETCH_HEAD", b"");
+        assert_eq!(git_last_fetch(&t.0.join("repo")), None);
     }
 
     #[test]

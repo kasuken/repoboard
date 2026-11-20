@@ -77,6 +77,15 @@ export function createNodeHost(): HostApi {
           return null;
         }
       };
+      // A failed fetch truncates FETCH_HEAD to 0 bytes (bumping its mtime); a successful one lists the fetched refs.
+      const fetchHead = async (p: string): Promise<number | null> => {
+        try {
+          const st = await fs.stat(p);
+          return st.size > 0 ? st.mtimeMs : null;
+        } catch {
+          return null;
+        }
+      };
       let gitdir = path.join(folder, '.git');
       let common = gitdir;
       try {
@@ -95,9 +104,9 @@ export function createNodeHost(): HostApi {
       } catch {
         return null;
       }
-      const times: Array<number | null> = [await mtime(path.join(gitdir, 'FETCH_HEAD')), await mtime(path.join(common, 'FETCH_HEAD'))];
+      const times: Array<number | null> = [await fetchHead(path.join(gitdir, 'FETCH_HEAD')), await fetchHead(path.join(common, 'FETCH_HEAD'))];
       try {
-        for (const w of await fs.readdir(path.join(common, 'worktrees'))) times.push(await mtime(path.join(common, 'worktrees', w, 'FETCH_HEAD')));
+        for (const w of await fs.readdir(path.join(common, 'worktrees'))) times.push(await fetchHead(path.join(common, 'worktrees', w, 'FETCH_HEAD')));
       } catch {
         /* none */
       }
