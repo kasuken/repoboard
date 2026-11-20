@@ -42,10 +42,12 @@ struct PlatformInfo {
     shared_dir: String,
     app_dir: String,
     version: &'static str,
+    /// The updater has a real public key, so update checks and installs can work.
+    updater_enabled: bool,
 }
 
 #[tauri::command]
-fn platform_info(state: State<'_, AppState>) -> PlatformInfo {
+fn platform_info(app: tauri::AppHandle, state: State<'_, AppState>) -> PlatformInfo {
     PlatformInfo {
         platform: if cfg!(windows) {
             "win32"
@@ -58,7 +60,19 @@ fn platform_info(state: State<'_, AppState>) -> PlatformInfo {
         shared_dir: state.dirs.shared.to_string_lossy().into_owned(),
         app_dir: state.dirs.app.to_string_lossy().into_owned(),
         version: env!("CARGO_PKG_VERSION"),
+        updater_enabled: updater_configured(&app),
     }
+}
+
+/// True when tauri.conf.json carries a real updater public key (builds made before the signing key existed don't).
+fn updater_configured(app: &tauri::AppHandle) -> bool {
+    app.config()
+        .plugins
+        .0
+        .get("updater")
+        .and_then(|u| u.get("pubkey"))
+        .and_then(|k| k.as_str())
+        .is_some_and(|k| !k.trim().is_empty() && !k.starts_with("REPLACE_WITH"))
 }
 
 // ── git ────────────────────────────────────────────────────────────────────

@@ -16,6 +16,8 @@ import { ProjectService } from './projectService';
 import { loadSettings, sanitizeSettings, saveSettings, scanRootsOf } from './settings';
 import { UPDATE_CHECK_DELAY_MS, Updater, updateCheckDue } from './updates';
 
+const RELEASES_URL = 'https://github.com/kasuken/repoboard/releases';
+
 const AUTO_SCAN_INTERVAL_MS = 10 * 60_000;
 
 /**
@@ -28,7 +30,7 @@ export class App {
   readonly meta: MetadataService;
   settings: AppSettings = sanitizeSettings(undefined);
   launchers: Launchers = { editors: [], terminals: [] };
-  platform: PlatformInfo = { platform: 'linux', home: '', sharedDir: '', appDir: '', version: '' };
+  platform: PlatformInfo = { platform: 'linux', home: '', sharedDir: '', appDir: '', version: '', updaterEnabled: false };
   dataFile = '';
   /** Delay between the UI being ready and the automatic update check. Tests shrink it. */
   updateCheckDelayMs = UPDATE_CHECK_DELAY_MS;
@@ -215,6 +217,7 @@ export class App {
       ignoredCount: catalog.ignoredPaths.length,
       dataFile: this.dataFile,
       version: this.platform.version,
+      updaterEnabled: this.platform.updaterEnabled,
     };
   }
 
@@ -589,12 +592,18 @@ export class App {
 
   /** Checks silently when the setting is on and the last check is older than 24 h. */
   async autoCheckUpdates(): Promise<void> {
-    if (!updateCheckDue(this.settings, Date.now())) return;
+    if (!this.platform.updaterEnabled || !updateCheckDue(this.settings, Date.now())) return;
     await this.updater.checkSilently();
   }
 
   /** "Check for updates…": ignores the setting and the throttle, and always reports. */
   async checkUpdates(): Promise<void> {
+    if (!this.platform.updaterEnabled) {
+      // Built without the update-signing key: nothing could be verified, so send people to the download page.
+      const choice = await notify.info(`Repo Board ${this.platform.version} can't update itself. New versions are on the releases page.`, 'Open releases page');
+      if (choice) await this.host.openUrl(RELEASES_URL);
+      return;
+    }
     await this.updater.checkManually(this.platform.version);
   }
 

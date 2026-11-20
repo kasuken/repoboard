@@ -13,13 +13,11 @@
 - **Stashes don't get lost.** The stash badge says *2 stashes* and gives the oldest one's age; click it to list each
   stash with its branch, message and age. A **with stashes** chip finds them, *most changes* ranks stashed repos above
   clean ones, and worktree tiles no longer repeat their main repo's stashes.
-- **Automatic updates.** Repo Board checks GitHub for a new version when it starts (at most once a day) and offers
-  to install it and restart. Updates are signed and verified before they are installed. Use **⋯ › Check for
-  updates** to look right away, or turn the automatic check off in Settings.
+- **Check for updates** (in the **⋯** menu) points to the releases page. The app now contains a signed auto-updater,
+  which will be switched on in a later version.
 - macOS builds are ad-hoc signed, which should replace the "damaged" message with the usual first-launch prompt.
 
-Version 0.1.0 has no updater, so install 0.2.0 by hand once. Later versions arrive by themselves. On Linux,
-automatic updates work for the AppImage; with the `.deb` or `.rpm`, install new versions from the releases page.
+Install 0.2.0 over 0.1.0 by downloading it below; your board and settings are kept.
 
 ## 0.1.0
 

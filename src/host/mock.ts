@@ -334,6 +334,7 @@ export const mockHost: HostApi = {
       sharedDir: `${HOME}${BS}AppData${BS}Roaming${BS}repoboard`,
       appDir: `${HOME}${BS}AppData${BS}Roaming${BS}repoboard${BS}app`,
       version: '0.1.0-dev',
+      updaterEnabled: true,
     };
   },
 

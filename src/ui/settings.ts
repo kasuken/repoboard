@@ -110,7 +110,7 @@ export function openSettings(board: BoardState): void {
   );
   const shortcut = h('input', { class: 'input mono', value: s.globalShortcut, placeholder: 'CommandOrControl+Alt+Shift+P', spellcheck: 'false', autocomplete: 'off' });
 
-  const section = (title: string, ...children: HTMLElement[]) => h('section', { class: 'set-section' }, h('h3', { class: 'set-title', text: title }), ...children);
+  const section = (title: string, ...children: Array<HTMLElement | null>) => h('section', { class: 'set-section' }, h('h3', { class: 'set-title', text: title }), ...children);
 
   const body = h(
     'div',
@@ -140,7 +140,7 @@ export function openSettings(board: BoardState): void {
       'App',
       h('div', { class: 'field-row even' }, field('Theme', theme), field('Global shortcut', shortcut, mac ? 'Brings Repo Board forward with the switcher open. Example: Command+Alt+Shift+P. Empty turns it off.' : 'Brings Repo Board forward with the switcher open. Example: CommandOrControl+Alt+Shift+P. Empty turns it off.')),
       tray.el,
-      updates.el,
+      board.updaterEnabled ? updates.el : null,
     ),
   );
 

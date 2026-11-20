@@ -16,16 +16,19 @@ jobs:
       release_id: ${{ steps.create.outputs.release_id }}
     steps:
       - uses: actions/checkout@v4
-      - name: Updater signing key is configured
+      - name: Updater signing is consistent
         env:
           KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
-          if [ -z "$KEY" ]; then
-            echo "::error::Add the TAURI_SIGNING_PRIVATE_KEY repository secret (see README, Releasing)."
+          # Signed update bundles are built only when tauri.conf.json asks for them (bundle.createUpdaterArtifacts).
+          # Without them the release still works; that version just can't update itself (README, Releasing).
+          WANTS=$(node -p "require('./src-tauri/tauri.conf.json').bundle.createUpdaterArtifacts === true")
+          if [ "$WANTS" = true ] && [ -z "$KEY" ]; then
+            echo "::error::createUpdaterArtifacts is on: add the TAURI_SIGNING_PRIVATE_KEY repository secret."
             exit 1
           fi
-          if grep -q REPLACE_WITH_UPDATER_PUBLIC_KEY src-tauri/tauri.conf.json; then
-            echo "::error::Put the updater public key in src-tauri/tauri.conf.json (plugins.updater.pubkey)."
+          if [ "$WANTS" = true ] && grep -q REPLACE_WITH_UPDATER_PUBLIC_KEY src-tauri/tauri.conf.json; then
+            echo "::error::createUpdaterArtifacts is on: put the updater public key in plugins.updater.pubkey."
             exit 1
           fi
       - id: create
@@ -92,7 +95,7 @@ jobs:
           releaseId: ${{ needs.create-release.outputs.release_id }}
           args: ${{ matrix.args }}
           # Uploads latest.json, which the app's updater reads from releases/latest/download/latest.json.
-          includeUpdaterJson: true
+          includeUpdaterJson: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY != '' }}
 
   publish:
     needs: [create-release, build]

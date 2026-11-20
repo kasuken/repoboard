@@ -191,3 +191,26 @@ test('saveSettings keeps the check time of the core even if the dialog sends an 
   assert.equal(app.settings.checkForUpdates, false);
   stop();
 });
+
+test('a build without the update-signing key never checks and points the manual check at the releases page', async () => {
+  const host = createFakeHost();
+  host.platformInfo = async () => ({ platform: 'linux', home: '/home/me', sharedDir: '/shared', appDir: '/app', version: '0.2.0', updaterEnabled: false });
+  host.files.set('settings', JSON.stringify({ lastUpdateCheck: 0 }));
+  const app = new App(host);
+  await app.init();
+  const messages: HostMessage[] = [];
+  const stop = onHostMessage((m) => messages.push(m));
+  await app.autoCheckUpdates();
+  assert.equal(host.updateCalls.checks, 0);
+  const done = app.checkUpdates();
+  await new Promise((r) => setTimeout(r, 0));
+  const ask = messages.find((m): m is Extract<HostMessage, { type: 'ask' }> => m.type === 'ask');
+  assert.ok(ask, 'an info notification');
+  assert.match(ask.text, /can't update itself/);
+  assert.deepEqual(ask.actions, ['Open releases page']);
+  handleAnswer(ask.id, 'Open releases page');
+  await done;
+  assert.equal(host.updateCalls.checks, 0);
+  assert.deepEqual(host.updateCalls.urls, ['https://github.com/kasuken/repoboard/releases']);
+  stop();
+});

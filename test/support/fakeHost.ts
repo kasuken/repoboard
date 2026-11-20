@@ -61,7 +61,7 @@ export function createFakeHost(repos: Record<string, FakeRepo> = {}, platform: '
     },
 
     async platformInfo() {
-      return { platform, home: platform === 'win32' ? 'C:\\Users\\me' : '/home/me', sharedDir: '/shared', appDir: '/app', version: '9.9.9' };
+      return { platform, home: platform === 'win32' ? 'C:\\Users\\me' : '/home/me', sharedDir: '/shared', appDir: '/app', version: '9.9.9', updaterEnabled: true };
     },
     async gitStatus(folder) {
       const r = repoMap.get(folder);

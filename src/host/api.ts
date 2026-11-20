@@ -28,6 +28,8 @@ export interface PlatformInfo {
   appDir: string;
   /** App version from Cargo.toml / tauri.conf.json. */
   version: string;
+  /** The build carries an updater public key. False until the signing key exists: no automatic update checks then. */
+  updaterEnabled: boolean;
 }
 
 /** Result of one git process. */

@@ -125,6 +125,8 @@ export interface BoardState {
   /** Absolute path of catalog.json, shown in Settings. */
   dataFile: string;
   version: string;
+  /** False for builds without the update-signing key: the auto-update setting is hidden and "Check for updates" points to the releases page. */
+  updaterEnabled: boolean;
 }
 
 export interface ProgressTask {
