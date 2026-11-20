@@ -73,6 +73,7 @@
 .sw-badge.b-dirty { color: var(--st-dirty); }
 .sw-badge.b-behind { color: var(--st-behind); }
 .sw-badge.b-ahead { color: var(--st-ahead); }
+.sw-badge.b-stash { color: var(--st-stash); }
 .sw-badge.b-conflict, .sw-badge.b-missing { color: var(--st-conflict); }
 .sw-tag { font-size: 11.5px; color: var(--muted); }
 .sw-actions { grid-area: actions; display: flex; gap: 2px; opacity: 0; }

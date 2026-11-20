@@ -85,7 +85,7 @@ pub fn status(folder: &Path) -> GitStatusRaw {
     thread::scope(|s| {
         let st = s.spawn(|| read(folder, &["status", "--porcelain=v2", "--branch"]));
         let log = s.spawn(|| read(folder, &["log", "-1", "--format=%h%x1f%s%x1f%an%x1f%ct"]));
-        let stash = s.spawn(|| read(folder, &["rev-list", "--walk-reflogs", "--count", "refs/stash"]));
+        let stash = s.spawn(|| read(folder, &["stash", "list", "--format=%gd%x1f%ct%x1f%gs"]));
         let remotes = s.spawn(|| read(folder, &["remote", "-v"]));
         let join = |h: thread::ScopedJoinHandle<'_, GitRun>| {
             h.join().unwrap_or(GitRun { ok: false, stdout: String::new(), stderr: "internal error".into(), missing_git: false })
@@ -186,10 +186,23 @@ mod tests {
         assert!(r.status.stdout.contains("? b.txt"));
         assert!(r.log.stdout.contains('\u{1f}') && r.log.stdout.contains("first"));
         assert!(!r.status.missing_git);
-        // No stash: rev-list fails, which the TypeScript side treats as zero.
+        // No stash: empty output.
+        assert!(r.stash.ok && r.stash.stdout.trim().is_empty());
         assert!(r.remotes.ok);
         assert!(worktree_list(&t.0).ok);
         assert!(short_status(&t.0).ok);
+        // One stash: a single well-formed `ref US time US message` line.
+        t.file("a.txt", b"changed");
+        assert!(ok(&["-c", "user.name=T", "-c", "user.email=t@t.t", "stash", "push", "-m", "note"]));
+        let r = status(&t.0);
+        assert!(r.stash.ok, "{}", r.stash.stderr);
+        let lines: Vec<&str> = r.stash.stdout.lines().filter(|l| !l.is_empty()).collect();
+        assert_eq!(lines.len(), 1, "{:?}", r.stash.stdout);
+        let f: Vec<&str> = lines[0].split('').collect();
+        assert_eq!(f.len(), 3);
+        assert_eq!(f[0], "stash@{0}");
+        assert!(f[1].parse::<u64>().is_ok());
+        assert!(f[2].contains("note"));
         // A missing folder is a failure but never "missing git".
         let gone = status(&t.0.join("nope"));
         assert!(!gone.status.ok && !gone.status.missing_git);

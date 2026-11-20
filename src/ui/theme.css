@@ -32,6 +32,7 @@
   --vscode-editorWarning-foreground: #cca700;
   --vscode-charts-blue: #3794ff;
   --vscode-charts-green: #89d185;
+  --vscode-charts-purple: #b180d7;
   --vscode-errorForeground: #f85149;
   --vscode-editorWidget-background: #202020;
   --vscode-editorWidget-border: #454545;
@@ -76,6 +77,7 @@
   --vscode-editorWarning-foreground: #bf8803;
   --vscode-charts-blue: #1a85ff;
   --vscode-charts-green: #388a34;
+  --vscode-charts-purple: #652d90;
   --vscode-errorForeground: #a1260d;
   --vscode-editorWidget-background: #f8f8f8;
   --vscode-editorWidget-border: #c8c8c8;
@@ -121,6 +123,7 @@
     --vscode-editorWarning-foreground: #bf8803;
     --vscode-charts-blue: #1a85ff;
     --vscode-charts-green: #388a34;
+    --vscode-charts-purple: #652d90;
     --vscode-errorForeground: #a1260d;
     --vscode-editorWidget-background: #f8f8f8;
     --vscode-editorWidget-border: #c8c8c8;

@@ -8,6 +8,8 @@ export interface FakeRepo {
   behind?: number;
   modified?: number;
   conflicts?: number;
+  /** Stash entries, newest first. */
+  stash?: Array<{ message: string; time?: number }>;
   availability?: Availability;
   /** `git pull` fails with this message. */
   pullError?: string;
@@ -72,7 +74,7 @@ export function createFakeHost(repos: Record<string, FakeRepo> = {}, platform: '
       if (upstream) lines.push(`# branch.upstream ${upstream}`, `# branch.ab +${r.ahead ?? 0} -${r.behind ?? 0}`);
       for (let i = 0; i < (r.modified ?? 0); i++) lines.push(`1 .M N... 100644 100644 100644 ${'a'.repeat(40)} ${'b'.repeat(40)} f${i}.ts`);
       for (let i = 0; i < (r.conflicts ?? 0); i++) lines.push(`u UU N... 100644 100644 100644 100644 ${'a'.repeat(40)} ${'b'.repeat(40)} ${'c'.repeat(40)} c${i}.ts`);
-      return { status: ok(lines.join('\n') + '\n'), log: ok(`abc1234\x1fsubject\x1fme\x1f1700000000\n`), stash: ok('0\n'), remotes: ok('origin\thttps://github.com/x/y.git (fetch)\n') };
+      return { status: ok(lines.join('\n') + '\n'), log: ok(`abc1234\x1fsubject\x1fme\x1f1700000000\n`), stash: ok((r.stash ?? []).map((e, i) => `stash@{${i}}\x1f${e.time ?? 1700000000}\x1f${e.message}\n`).join('')), remotes: ok('origin\thttps://github.com/x/y.git (fetch)\n') };
     },
     async gitWorktreeList() {
       return ok();

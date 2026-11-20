@@ -1,4 +1,4 @@
-import { CommitInfo } from './model';
+import { CommitInfo, StashEntry } from './model';
 
 /** Fields of `git status --porcelain=v2 --branch` that Repo Board shows. */
 export interface ParsedStatus {
@@ -241,4 +241,37 @@ export function worktreeMainFromGitFile(contents: string, folder: string, resolv
   const main = commonDir[commonDir.length - 1]!.toLowerCase() === '.git' ? commonDir.slice(0, -1) : commonDir;
   const joined = main.join(gitdir.includes('\\') ? '\\' : '/');
   return joined || undefined;
+}
+
+/**
+ * Parses `git stash list --format=%gd%x1f%ct%x1f%gs`. Only lines with exactly three unit-separated fields count:
+ * user config (e.g. log.showSignature) can inject other lines.
+ */
+export function parseStashList(stdout: string): StashEntry[] {
+  const out: StashEntry[] = [];
+  for (const line of stdout.split(/\r?\n/)) {
+    const f = line.split('\x1f');
+    if (f.length !== 3 || !f[0]) continue;
+    out.push({ ref: f[0], time: Number(f[1]) || 0, message: f[2]! });
+  }
+  return out;
+}
+
+/** The branch a stash was made on, from `WIP on <b>: ...` or `On <b>: ...`. */
+export function stashBranch(message: string): string | undefined {
+  const m = message.match(/^(?:WIP on|On) (.+?): /);
+  return m?.[1];
+}
+
+/**
+ * A short menu label for a stash message: `WIP on main: 1a2b3c3 fix login` → `On main · fix login`,
+ * `On feature: my note` → `On feature · my note`. Anything else is shown as git wrote it. At most 80 characters.
+ */
+export function stashLabel(message: string): string {
+  const text = message.trim();
+  const wip = text.match(/^WIP on (.+?): [0-9a-f]{4,40}(?: (.*))?$/);
+  const on = wip ? undefined : text.match(/^On (.+?): (.*)$/);
+  const m = wip ?? on;
+  const label = m ? (m[2]?.trim() ? `On ${m[1]} · ${m[2].trim()}` : `On ${m[1]}`) : text;
+  return label.length > 80 ? `${label.slice(0, 79)}…` : label;
 }

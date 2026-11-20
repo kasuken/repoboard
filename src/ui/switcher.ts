@@ -98,6 +98,7 @@ export function openSwitcher(getBoard: () => BoardState | undefined): void {
       if (changes) status.push(h('span', { class: 'sw-badge b-dirty', title: `${changes} changed file(s)` }, h('span', { class: 'pip' }), String(changes)));
       if (git.behind) status.push(h('span', { class: 'sw-badge b-behind', title: `${git.behind} to pull` }, icon('arrow-down'), String(git.behind)));
       if (git.ahead) status.push(h('span', { class: 'sw-badge b-ahead', title: `${git.ahead} to push` }, icon('arrow-up'), String(git.ahead)));
+      if (git.stashes) status.push(h('span', { class: 'sw-badge b-stash', title: `${git.stashes} stash${git.stashes === 1 ? '' : 'es'}` }, icon('archive'), String(git.stashes)));
       if (git.worktrees?.length) status.push(h('span', { class: 'sw-badge', title: 'Linked worktrees' }, icon('repo-forked'), String(git.worktrees.length)));
     }
     if (meta?.availability === 'missing') status.push(h('span', { class: 'sw-badge b-missing' }, icon('warning'), 'folder missing'));

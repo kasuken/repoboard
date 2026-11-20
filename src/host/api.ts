@@ -43,7 +43,7 @@ export interface GitRun {
  * The four reads `git_status` runs in parallel in `folder`, all with READ_FLAGS:
  *   status:  status --porcelain=v2 --branch
  *   log:     log -1 --format=%h%x1f%s%x1f%an%x1f%ct
- *   stash:   rev-list --walk-reflogs --count refs/stash
+ *   stash:   stash list --format=%gd%x1f%ct%x1f%gs   (one line per entry; empty when none)
  *   remotes: remote -v
  */
 export interface GitStatusRaw {

@@ -33,7 +33,7 @@ export function createNodeHost(): HostApi {
       const [status, log, stash, remotes] = await Promise.all([
         read(folder, 'status', '--porcelain=v2', '--branch'),
         read(folder, 'log', '-1', `--format=${LOG_FORMAT}`),
-        read(folder, 'rev-list', '--walk-reflogs', '--count', 'refs/stash'),
+        read(folder, 'stash', 'list', '--format=%gd%x1f%ct%x1f%gs'),
         read(folder, 'remote', '-v'),
       ]);
       return { status, log, stash, remotes };

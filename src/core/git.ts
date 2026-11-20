@@ -1,4 +1,4 @@
-import { describeGitError, parseLogLine, parsePorcelainV2, parseWorktreeList, pickRemoteUrl, remoteToWebUrl, worktreeMainFromGitFile } from '../domain/gitParse';
+import { describeGitError, parseLogLine, parsePorcelainV2, parseStashList, parseWorktreeList, pickRemoteUrl, remoteToWebUrl, worktreeMainFromGitFile } from '../domain/gitParse';
 import type { GitStatus, WorktreeInfo } from '../domain/model';
 import { pathApi } from '../domain/pathlib';
 import type { HostApi, RemoteOp } from '../host/api';
@@ -65,8 +65,9 @@ export class GitClient {
       modified: parsed.modified,
       untracked: parsed.untracked,
       conflicts: parsed.conflicts,
-      stashes: stash.ok ? Number(stash.stdout.trim()) || 0 : 0,
+      stashes: 0,
     };
+    const stashList = stash.ok ? parseStashList(stash.stdout) : [];
     if (parsed.upstream) {
       status.upstream = parsed.upstream;
       const last = lastFetch.status === 'fulfilled' ? lastFetch.value : null;
@@ -84,8 +85,11 @@ export class GitClient {
     }
     const main = await worktreeMainOf(this.host, folder);
     if (main) {
+      // refs/stash is shared with the main repo, which shows it; repeating it on every worktree tile is noise.
       status.worktreeOf = main;
     } else {
+      status.stashes = stashList.length;
+      if (stashList.length) status.stashList = stashList.slice(0, 50);
       const worktrees = await this.worktrees(folder);
       if (worktrees.length) {
         status.worktrees = worktrees;

@@ -1,4 +1,5 @@
-import { Collection, GitStatus, ProjectMeta, SORT_MODES, SortMode, ViewMode, changedFiles, initialsFor, tagHue } from '../domain/model';
+import { Collection, GitStatus, ProjectMeta, SORT_MODES, SortMode, ViewMode, changedFiles, hasStashes, initialsFor, tagHue } from '../domain/model';
+import { stashLabel } from '../domain/gitParse';
 import { fetchFreshness, isFetchStale } from '../domain/freshness';
 import { fieldsOf, matchScore, relativeTime, sortProjects } from '../domain/search';
 import type { BoardState, ProjectEdit, ProjectView } from './protocol';
@@ -22,7 +23,7 @@ function loadUi(): Partial<UiState> {
   }
 }
 
-type Filter = 'all' | 'changes' | 'behind' | 'ahead' | 'stale' | 'missing';
+type Filter = 'all' | 'changes' | 'behind' | 'ahead' | 'stale' | 'missing' | 'stashes';
 interface UiState {
   query: string;
   sort?: SortMode;
@@ -93,6 +94,8 @@ function matchesFilter(p: ProjectView, filter: Filter): boolean {
       return (git?.behind ?? 0) > 0;
     case 'ahead':
       return (git?.ahead ?? 0) > 0;
+    case 'stashes':
+      return hasStashes(git);
     case 'stale':
       return isFetchStale(git);
     case 'missing':
@@ -364,6 +367,7 @@ function renderFilters(): void {
     chip('changes', 'with changes', 'f-dirty'),
     chip('behind', 'behind', 'f-behind'),
     chip('ahead', 'ahead', 'f-ahead'),
+    chip('stashes', 'with stashes', 'f-stash'),
     chip('missing', 'unavailable', 'f-missing'),
     chip('stale', 'not fetched recently', 'f-stale'),
     tagChips.length ? h('span', { class: 'filters-gap' }) : null,
@@ -445,7 +449,31 @@ function gitLine(git: GitStatus, compact = false, project?: ProjectView): HTMLEl
   }
   if (git.behind) parts.push(h('span', { class: 'badge b-behind', title: `${git.behind} commit(s) to pull from ${git.upstream}` }, icon('arrow-down'), String(git.behind)));
   if (git.ahead) parts.push(h('span', { class: 'badge b-ahead', title: `${git.ahead} commit(s) to push to ${git.upstream}` }, icon('arrow-up'), String(git.ahead)));
-  if (git.stashes) parts.push(h('span', { class: 'badge b-stash', title: `${git.stashes} stash entr${git.stashes === 1 ? 'y' : 'ies'}` }, icon('archive'), String(git.stashes)));
+  if (git.stashes) {
+    const n = git.stashes;
+    const oldest = git.stashList?.[git.stashList.length - 1];
+    const title = `${n} stash${n === 1 ? '' : 'es'}${oldest && n === git.stashList!.length ? `, the oldest from ${relativeTime(oldest.time * 1000)}` : ''}`;
+    const label = compact ? String(n) : `${n} stash${n === 1 ? '' : 'es'}`;
+    parts.push(
+      project
+        ? h(
+            'button',
+            {
+              type: 'button',
+              class: 'badge b-stash',
+              title: `${title}. Click to list them.`,
+              'aria-label': `${title} in ${project.name}`,
+              onclick: (e: MouseEvent) => {
+                e.stopPropagation();
+                openStashMenu(project, e.currentTarget as HTMLElement);
+              },
+            },
+            icon('archive'),
+            label,
+          )
+        : h('span', { class: 'badge b-stash', title }, icon('archive'), label),
+    );
+  }
   const trees = git.worktrees ?? [];
   if (trees.length && project) {
     const dirty = trees.filter((w) => (w.changes ?? 0) > 0).length;
@@ -892,6 +920,8 @@ interface MenuItem {
   alt?: () => void;
   /** Tooltip, e.g. a full path. */
   title?: string;
+  /** Shown but not selectable or focusable (an informational line). */
+  disabled?: boolean;
 }
 
 let openMenuEl: HTMLElement | undefined;
@@ -916,6 +946,7 @@ function showMenu(anchor: HTMLElement, items: Array<MenuItem | 'sep'>, at?: Mous
         type: 'button',
         role: 'menuitem',
         class: `menu-item${item.danger ? ' danger' : ''}`,
+        disabled: item.disabled,
         title: item.title,
         onclick: (e: MouseEvent) => {
           closeMenu();
@@ -927,7 +958,7 @@ function showMenu(anchor: HTMLElement, items: Array<MenuItem | 'sep'>, at?: Mous
       h('span', { text: item.label }),
       item.hint ? h('kbd', { text: item.hint }) : null,
     );
-    buttons.push(b);
+    if (!item.disabled) buttons.push(b);
     menu.append(b);
   }
   menu.addEventListener('keydown', (e) => {
@@ -998,6 +1029,24 @@ function openWithItems(p: ProjectView): MenuItem[] {
   return (board?.launchers.editors ?? [])
     .filter((l) => l.available && l.id !== 'custom')
     .map((l) => ({ label: l.name, icon: l.id === board!.appSettings.editor ? 'check' : 'code', run: () => send({ type: 'openWith', id: p.id, editor: l.id }) }));
+}
+
+/** Lists a repo's stash entries (read-only) and offers a terminal to pop them. */
+function openStashMenu(p: ProjectView, anchor: HTMLElement): void {
+  const list = board!.meta[p.id]?.git?.stashList ?? [];
+  const total = board!.meta[p.id]?.git?.stashes ?? list.length;
+  const shown = list.slice(0, 10);
+  const items: Array<MenuItem | 'sep'> = shown.map((e) => ({
+    label: stashLabel(e.message),
+    icon: 'archive',
+    hint: relativeTime(e.time * 1000),
+    title: `${e.ref}: ${e.message}`,
+    run: () => undefined,
+  }));
+  if (total > shown.length) items.push({ label: `and ${total - shown.length} more`, icon: 'ellipsis', disabled: true, run: () => undefined });
+  items.push('sep');
+  items.push({ label: 'Open terminal here', icon: 'terminal', title: 'Then run git stash pop', run: () => send({ type: 'terminal', id: p.id }) });
+  showMenu(anchor, items);
 }
 
 /** Lists a repo's linked worktrees; picking one opens it (Ctrl/Cmd+click: the other window). */

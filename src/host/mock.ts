@@ -37,7 +37,7 @@ interface RepoSpec {
   modified: number;
   untracked: number;
   conflicts: number;
-  stashes: number;
+  stashes: Array<{ message: string; secondsAgo: number }>;
   commit: { subject: string; secondsAgo: number };
   remote: string | undefined;
   worktrees: WorktreeSpec[];
@@ -67,7 +67,7 @@ function repo(name: string, extra: Partial<RepoSpec> = {}): RepoSpec {
     modified: 0,
     untracked: 0,
     conflicts: 0,
-    stashes: 0,
+    stashes: [],
     commit: { subject: 'Update dependencies', secondsAgo: 2 * D },
     remote: `git@github.com:acme/${name}.git`,
     worktrees: [],
@@ -87,6 +87,10 @@ const SPECS: RepoSpec[] = [
   repo('storefront', {
     modified: 3,
     untracked: 1,
+    stashes: [
+      { message: 'WIP on main: 9f3b2c1 Cache product pages at the edge', secondsAgo: 2 * D },
+      { message: 'On feature/cart: try new cart drawer', secondsAgo: 35 * D },
+    ],
     commit: { subject: 'Cache product pages at the edge', secondsAgo: 1 * H },
     worktrees: [
       { path: 'C:/Users/dev/code/worktrees/storefront/agent-fix-checkout-total', branch: 'agent/fix-checkout-total', changes: 6 },
@@ -116,7 +120,7 @@ const SPECS: RepoSpec[] = [
     modified: 5,
     ahead: 1,
     behind: 2,
-    stashes: 1,
+    stashes: [{ message: 'WIP on feature/apple-pay: 4e1c9a2 Apple Pay sheet', secondsAgo: 3 * D }],
     commit: { subject: 'WIP: Apple Pay sheet', secondsAgo: 2 * D },
     languages: langs(['Vue', 54], ['TypeScript', 39], ['CSS', 7]),
     remoteError: 'fatal: Not possible to fast-forward, aborting.',
@@ -141,6 +145,7 @@ const SPECS: RepoSpec[] = [
   repo('md-lint-action', {
     upstream: undefined,
     remote: undefined,
+    stashes: [{ message: 'On main: fix flaky lint rule', secondsAgo: 4 * D }],
     commit: { subject: 'Initial commit', secondsAgo: 12 * H },
     languages: langs(['TypeScript', 92], ['Shell', 8]),
   }),
@@ -241,7 +246,7 @@ function gitStatusRaw(folder: string): GitStatusRaw {
   return {
     status: ok(porcelain(s, true)),
     log: ok(`${fakeHash(c.subject, 7)}${unit}${c.subject}${unit}You${unit}${when}\n`),
-    stash: ok(`${s.stashes}\n`),
+    stash: ok(s.stashes.map((e, i) => `stash@{${i}}${unit}${Math.round(Date.now() / 1000 - e.secondsAgo)}${unit}${e.message}\n`).join('')),
     remotes: ok(s.remote ? `origin\t${s.remote} (fetch)\norigin\t${s.remote} (push)\n` : ''),
   };
 }
