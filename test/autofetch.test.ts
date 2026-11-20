@@ -5,7 +5,7 @@ import { GitClient } from '../src/core/git';
 import { MetadataService } from '../src/core/metadata';
 import { sanitizeSettings } from '../src/core/settings';
 import { fetchDue, fetchFreshness, isFetchStale } from '../src/domain/freshness';
-import { cleanFetchError } from '../src/domain/gitParse';
+import { cleanFetchError, isConcurrentFetchError } from '../src/domain/gitParse';
 import type { GitStatus, Project } from '../src/domain/model';
 import { setPlatform } from '../src/domain/pathlib';
 import { DEFAULT_SETTINGS } from '../src/ui/protocol';
@@ -246,4 +246,37 @@ test('scheduler: a repo fetched by another tool is skipped but its status is re-
   assert.equal(r?.skipped, 1);
   assert.equal(host.calls.background.length, 0);
   assert.ok((meta.get('/r/a')?.git?.lastFetchAt ?? 0) > (shownBefore ?? 0));
+});
+
+test('isConcurrentFetchError: lock collisions are recognised, network and credential failures are not', () => {
+  assert.equal(isConcurrentFetchError("error: cannot lock ref 'refs/remotes/origin/main': is at 1a2b but expected 3c4d"), true);
+  assert.equal(isConcurrentFetchError("fatal: Unable to create '/r/a/.git/refs/remotes/origin/main.lock': File exists.\n\nAnother git process seems to be running"), true);
+  assert.equal(isConcurrentFetchError("error: unable to update local ref 'refs/remotes/origin/main'"), true);
+  assert.equal(isConcurrentFetchError("FATAL: UNABLE TO CREATE '/r/a/.git/FETCH_HEAD.lock': FILE EXISTS."), true);
+  assert.equal(isConcurrentFetchError(''), false);
+  assert.equal(isConcurrentFetchError('fatal: unable to access: Could not resolve host'), false);
+  assert.equal(isConcurrentFetchError("fatal: Authentication failed for 'https://h.example/x'"), false);
+  assert.equal(isConcurrentFetchError("fatal: Unable to create '/r/a/.git/index.lock': Permission denied"), false);
+});
+
+test('a fetch that collided with another process is not a failure and not offline', async () => {
+  const lock = "error: cannot lock ref 'refs/remotes/origin/main': is at 1a2b but expected 3c4d";
+  const { host, meta, fetcher, offline } = setup({ '/r/a': { fetchError: lock }, '/r/b': { fetchError: lock }, '/r/c': { fetchError: lock } });
+  await meta.refresh([...host.repos.keys()], { force: true });
+  const r = await fetcher.runCycle();
+  assert.equal(r?.failed, 0);
+  assert.equal(r?.fetched, 0);
+  assert.equal(r?.skipped, 3);
+  assert.equal(r?.offline, false);
+  assert.deepEqual(offline, []);
+  for (const p of ['/r/a', '/r/b', '/r/c']) assert.equal(meta.get(p)?.git?.fetchError, undefined);
+
+  // The same through the metadata service's other paths.
+  assert.equal((await meta.fetchInBackground('/r/a')).outcome, 'concurrent');
+  await meta.refresh(['/r/a'], { force: true, fetch: true });
+  meta.recordFetch('/r/a', { ok: false, message: lock });
+  assert.equal(meta.get('/r/a')?.git?.fetchError, undefined);
+  // A genuine failure afterwards is still recorded.
+  meta.recordFetch('/r/a', { ok: false, message: 'fatal: nope' });
+  assert.equal(meta.get('/r/a')?.git?.fetchError, 'fatal: nope');
 });

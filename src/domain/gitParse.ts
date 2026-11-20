@@ -163,6 +163,15 @@ export function cleanFetchError(stderr: string): string {
   return safe.length > 200 ? `${safe.slice(0, 199)}…` : safe;
 }
 
+/**
+ * True when a failed fetch collided with another git process working on the same repo (another Repo Board window, the
+ * desktop app, VS Code's autofetch or the CLI): git cannot lock a ref or create a `.lock` file because someone else
+ * holds it. That is not a network or credentials problem, so it must not be shown as "fetch failed".
+ */
+export function isConcurrentFetchError(stderr: string): boolean {
+  return /cannot lock ref|unable to create '[^'\n]*\.lock': file exists|unable to update local ref/i.test(stderr);
+}
+
 /** Turns git's stderr into a short reason the UI can show. */
 export function describeGitError(stderr: string): string | undefined {
   if (/dubious ownership/i.test(stderr)) {

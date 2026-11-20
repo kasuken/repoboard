@@ -2,7 +2,7 @@ import type { Availability, GitStatus, LanguageShare, ProjectMeta } from '../dom
 import { LANGUAGE_EXTENSIONS, languageByName, toShares, type LanguageDef } from '../domain/languages';
 import { folderOf, pathKey } from '../domain/paths';
 import type { HostApi } from '../host/api';
-import { cleanFetchError } from '../domain/gitParse';
+import { cleanFetchError, isConcurrentFetchError } from '../domain/gitParse';
 import { Emitter } from './emitter';
 import { GitClient } from './git';
 
@@ -128,6 +128,10 @@ export class MetadataService extends Emitter<MetadataEvents> {
           const git = await this.local.run(() => this.git.status(folderOf(projectPath)));
           meta = { ...meta, git: git ? withFetchedAt(git, Date.now()) : null };
           this.store(key, meta);
+        } else if (isConcurrentFetchError(fetched.message)) {
+          // Someone else is fetching this repo right now: not a failure. Show what their fetch has written so far.
+          meta = await this.local.run(() => this.readLocal(projectPath, this.cache[key]));
+          this.store(key, meta);
         } else {
           this.recordFetch(projectPath, fetched);
         }
@@ -192,6 +196,9 @@ export class MetadataService extends Emitter<MetadataEvents> {
     const previous = this.cache[key];
     if (!previous?.git) return;
     let git: GitStatus;
+    if (!result.ok && isConcurrentFetchError(result.message)) {
+      return; // another process was fetching this repo: nothing to record
+    }
     if (result.ok) {
       git = withFetchedAt(previous.git, Date.now());
     } else if (options.quietFailure) {
@@ -205,19 +212,24 @@ export class MetadataService extends Emitter<MetadataEvents> {
   /**
    * Scheduled background fetch of one repo: runs through the same network limiter and in-flight map as refreshes,
    * so it can never overlap a Fetch all / Pull all or a manual refresh of the same repo. A success re-reads the status
-   * and clears `fetchError`; a failure is recorded unless `quietFailure`. 'skipped' = the repo is already being refreshed.
+   * and clears `fetchError`; a failure is recorded unless `quietFailure`. 'skipped' = the repo is already being refreshed;
+   * 'concurrent' = another process holds git's locks for this repo (it is being fetched elsewhere): neither a failure nor offline.
    */
-  async fetchInBackground(projectPath: string, options: { quietFailure?: boolean } = {}): Promise<{ outcome: 'ok' | 'failed' | 'skipped'; message: string }> {
+  async fetchInBackground(projectPath: string, options: { quietFailure?: boolean } = {}): Promise<{ outcome: 'ok' | 'failed' | 'skipped' | 'concurrent'; message: string }> {
     const key = pathKey(projectPath);
     if (this.inFlight.has(key)) return { outcome: 'skipped', message: '' };
-    let result: { outcome: 'ok' | 'failed'; message: string } = { outcome: 'failed', message: '' };
+    let result: { outcome: 'ok' | 'failed' | 'concurrent'; message: string } = { outcome: 'failed', message: '' };
     const job = (async () => {
       try {
         const fetched = await this.network.run(() => this.git.fetch(folderOf(projectPath)));
-        result = { outcome: fetched.ok ? 'ok' : 'failed', message: fetched.message };
+        const concurrent = !fetched.ok && isConcurrentFetchError(fetched.message);
+        result = { outcome: fetched.ok ? 'ok' : concurrent ? 'concurrent' : 'failed', message: fetched.message };
         if (fetched.ok) {
           const meta = await this.local.run(() => this.readLocal(projectPath, this.cache[key]));
           this.store(key, meta.git ? { ...meta, git: withFetchedAt(meta.git, Date.now()) } : meta);
+        } else if (concurrent) {
+          // Another process is fetching this repo: not a failure and not offline. Just show its current state.
+          this.store(key, await this.local.run(() => this.readLocal(projectPath, this.cache[key])));
         } else if (!options.quietFailure) {
           this.recordFetch(projectPath, fetched);
         }

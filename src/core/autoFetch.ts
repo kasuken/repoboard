@@ -123,7 +123,7 @@ export class AutoFetcher {
           this.attempts.set(p.path, now);
           const r = await meta.fetchInBackground(p.path, { quietFailure: true });
           if (r.outcome === 'ok') fetched++;
-          else if (r.outcome === 'skipped') skipped++;
+          else if (r.outcome === 'skipped' || r.outcome === 'concurrent') skipped++; // concurrent: someone else is fetching it right now
           else failures.push({ path: p.path, message: r.message });
         }),
       );
