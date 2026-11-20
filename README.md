@@ -48,7 +48,8 @@ Repo Board replaces that with one window:
 ### The whole fleet at a glance
 
 The strip at the top has one cell per repo, coloured by its git state. The chips under it filter the board to what
-matters right now: repos **with changes**, **behind**, **ahead** or **unavailable**. Sort by *most changes* and the
+matters right now: repos **with changes**, **behind**, **ahead**, **with stashes**, **unavailable** or **not fetched
+recently**. Sort by *most changes* and the
 repos that need you come first.
 
 ![Repos with uncommitted changes, sorted by most changes](images/attention.png)
@@ -70,6 +71,25 @@ one. Fetch, pull and push buttons appear when there is something to do.
 
 Most of this comes from a single `git status --porcelain=v2` call per repo. The board is shown instantly from cache
 while fresh status streams in.
+
+### Know how fresh "behind" is
+
+A behind count is only as current as the last `git fetch`. Every tile says when its repo was last fetched, such as
+*fetched 20m ago*, and turns it into a warning once that is more than a day ago or never happened. The time comes from
+the repo itself, so fetches from the command line, VS Code or the Repo Board extension count too.
+
+Repo Board also fetches in the background, every 30 minutes by default, and skips any repo that something else fetched
+recently. If a fetch fails, for example because a token expired, the tile says *fetch failed* and why, instead of
+quietly showing old numbers. When the network is down, the board shows one *Offline* note instead of an error on every
+repo.
+
+### Stashes don't get lost
+
+Stashes never show up as changed files, so a repo whose only unsaved work is a stash looks clean. Repo Board shows a
+*2 stashes* badge on the tile, with the age of the oldest in its tooltip. Click it to list each stash with its branch,
+message and age. The **with stashes** chip finds them all, and *most changes* ranks stashed repos above clean ones.
+
+![A repo's stashes listed with their branch, message and age](images/stashes.png)
 
 ### Auto-discovery
 
@@ -188,7 +208,8 @@ Everything is configured in the app (**⋯ › Settings**, or <kbd>Ctrl</kbd>+<k
 | Terminal | automatic | Terminal used by *Open terminal here*, or a custom command with `{path}` |
 | Global shortcut | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> | Brings the app forward with the switcher open; empty turns it off |
 | Default view / sort | grid / recent | How the board starts |
-| Fetch on open | on | Background `git fetch` at start-up so ahead/behind is real |
+| Fetch at start-up | on | `git fetch` when the app starts and when you refresh the board, skipping repos fetched in the last 10 minutes |
+| Background fetch | every 30 minutes | Keeps ahead/behind current; repos fetched recently by any tool are skipped; 0 turns it off |
 | Cache minutes | `5` | How long git status is reused before it is read again |
 | Language bar | on | Bounded file scan per project, capped at *Max files scanned* (10 000) |
 | Theme | system | System, light or dark |

@@ -116,9 +116,13 @@ Unmerged paths: 2 files
           <h3 class="h3">Filter to what needs you right now.</h3>
           <div class="prose">
             <p>
-              Click <strong>with changes</strong>, <strong>behind</strong>, <strong>ahead</strong> or
-              <strong>unavailable</strong> and the board narrows down. Sort by most changes and the repos that need you
-              come first.
+              Click <strong>with changes</strong>, <strong>behind</strong>, <strong>ahead</strong>,
+              <strong>with stashes</strong>, <strong>unavailable</strong> or <strong>not fetched recently</strong> and the
+              board narrows down. Sort by most changes and the repos that need you come first.
+            </p>
+            <p>
+              Stashes never show up as changed files, so they get their own badge: click it to see each stash with its
+              branch, message and age.
             </p>
             <p>
               Status comes from a single <code>git status --porcelain=v2</code> per repo, and the board shows instantly
@@ -197,6 +201,11 @@ Unmerged paths: 2 files
           <p>
             Monday morning, 60 repos out of date. <strong>Pull all</strong> runs across every repo, four at a time. It is
             fast-forward only, so it never creates a merge, and repos with conflicts are skipped.
+          </p>
+          <p>
+            In between, Repo Board fetches in the background and every tile says when it was last fetched, so
+            <em>0 behind</em> means 0 behind. Fetches from git, VS Code or the other Repo Board count too, and a failed
+            fetch says so instead of quietly showing old numbers.
           </p>
           <p>There is deliberately no push-all button.</p>
         </div>

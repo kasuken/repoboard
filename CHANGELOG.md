@@ -2,6 +2,17 @@
 
 ## 0.2.0
 
+- **Know how fresh "behind" is.** Every tile says when its repo was last fetched (*fetched 20m ago*) and turns it
+  into a warning after a day or when it never happened. Fetches by any tool count: git on the command line, VS Code or
+  the Repo Board extension. A **not fetched recently** chip lists those repos, and the switcher flags them too.
+- **Background fetch.** Repo Board fetches every 30 minutes by default (Settings › *Fetch in the background every*;
+  0 turns it off) and skips repos something else fetched recently. Background fetches now update `FETCH_HEAD`, so
+  other tools see them.
+- **Fetch failures are visible.** A repo whose fetch fails shows *fetch failed* with the reason instead of quietly
+  keeping old numbers. When every fetch fails, the board shows one *Offline* note instead.
+- **Stashes don't get lost.** The stash badge says *2 stashes* and gives the oldest one's age; click it to list each
+  stash with its branch, message and age. A **with stashes** chip finds them, *most changes* ranks stashed repos above
+  clean ones, and worktree tiles no longer repeat their main repo's stashes.
 - **Automatic updates.** Repo Board checks GitHub for a new version when it starts (at most once a day) and offers
   to install it and restart. Updates are signed and verified before they are installed. Use **⋯ › Check for
   updates** to look right away, or turn the automatic check off in Settings.

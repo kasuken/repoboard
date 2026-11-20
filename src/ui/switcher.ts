@@ -1,3 +1,4 @@
+import { fetchFreshness } from '../domain/freshness';
 import { changedFiles, initialsFor } from '../domain/model';
 import { fieldsOf, matchScore, sortProjects } from '../domain/search';
 import { send } from '../core/bridge';
@@ -100,6 +101,11 @@ export function openSwitcher(getBoard: () => BoardState | undefined): void {
       if (git.ahead) status.push(h('span', { class: 'sw-badge b-ahead', title: `${git.ahead} to push` }, icon('arrow-up'), String(git.ahead)));
       if (git.stashes) status.push(h('span', { class: 'sw-badge b-stash', title: `${git.stashes} stash${git.stashes === 1 ? '' : 'es'}` }, icon('archive'), String(git.stashes)));
       if (git.worktrees?.length) status.push(h('span', { class: 'sw-badge', title: 'Linked worktrees' }, icon('repo-forked'), String(git.worktrees.length)));
+      // Before you pick a repo to start work in: are its ahead/behind numbers trustworthy?
+      const fresh = fetchFreshness(git);
+      if (fresh.kind === 'stale' || fresh.kind === 'never' || fresh.kind === 'failed') {
+        status.push(h('span', { class: 'sw-badge fetched warn', title: fresh.title }, icon(fresh.kind === 'failed' ? 'warning' : 'history'), fresh.label));
+      }
     }
     if (meta?.availability === 'missing') status.push(h('span', { class: 'sw-badge b-missing' }, icon('warning'), 'folder missing'));
     if (meta?.availability === 'offline') status.push(h('span', { class: 'sw-badge b-missing' }, icon('debug-disconnect'), 'drive not connected'));
