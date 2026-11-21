@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- Fewer duplicate fetches. Up to four repos are fetched at once, so a repo can wait in the queue while another Repo
+  Board window, the VS Code extension or git on the command line fetches it. Repo Board now checks again right before
+  the fetch starts and skips it if the repo was just fetched, showing the new state instead.
+
 ## 0.2.0
 
 - **Know how fresh "behind" is.** Every tile says when its repo was last fetched (*fetched 20m ago*) and turns it
