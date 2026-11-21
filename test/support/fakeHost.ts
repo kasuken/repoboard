@@ -30,6 +30,8 @@ export interface FakeHost extends HostApi {
   discovered: string[];
   /** What `checkUpdate` returns, or rejects with when `checkError` is set. */
   update: UpdateInfo | null;
+  /** When set, every background fetch waits until `release()` is called (to fill the network limiter in tests). */
+  holdFetches?: { waiting: Array<() => void> };
   checkError?: string;
   /** `installUpdate` rejects with this message. */
   installError?: string;
@@ -84,6 +86,8 @@ export function createFakeHost(repos: Record<string, FakeRepo> = {}, platform: '
     },
     async gitFetchBackground(folder) {
       host.calls.background.push(folder);
+      const hold = host.holdFetches;
+      if (hold) await new Promise<void>((resolve) => hold.waiting.push(resolve));
       const r = repoMap.get(folder);
       if (!r) return fail('fatal: not a git repository');
       return r.fetchError ? fail(r.fetchError) : ok();

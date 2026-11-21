@@ -109,22 +109,41 @@ export class AutoFetcher {
       await Promise.all(
         candidates.map(async (p) => {
           // Another window, the VS Code extension or the CLI may have fetched since our last status read.
-          const onDisk = await host.gitLastFetch(folderOf(p.path)).catch(() => null);
+          const folder = folderOf(p.path);
+          const onDisk = await host.gitLastFetch(folder).catch(() => null);
           const cached = meta.get(p.path)?.git;
-          const last = Math.max(onDisk ?? 0, cached?.lastFetchAt ?? 0, cached?.fetchedAt ?? 0, this.attempts.get(p.path) ?? 0);
+          const known = (disk: number | null) => Math.max(disk ?? 0, cached?.lastFetchAt ?? 0, cached?.fetchedAt ?? 0);
           // fetchDue treats 0 as "off"; a one-off pass with minAgeMs 0 means "fetch everything now".
-          if (!(scheduled ? fetchDue(last, intervalMs, now) : intervalMs <= 0 || fetchDue(last, intervalMs, now))) {
+          const due = (last: number) => (scheduled ? fetchDue(last, intervalMs, now) : intervalMs <= 0 || fetchDue(last, intervalMs, now));
+          // Someone else fetched since we last looked: their fetch may have moved ahead/behind, so re-read the status
+          // (local only, no network) and the tile shows the new counts and time.
+          const rereadIfNewer = async (disk: number | null) => {
+            if ((disk ?? 0) > (cached?.lastFetchAt ?? 0)) await meta.refreshOne(p.path, { force: true });
+          };
+          if (!due(Math.max(known(onDisk), this.attempts.get(p.path) ?? 0))) {
             skipped++;
-            // Someone else fetched since we last looked: their fetch may have moved ahead/behind, so re-read the status
-            // (local only, no network) and the tile shows the new counts and time.
-            if ((onDisk ?? 0) > (cached?.lastFetchAt ?? 0)) await meta.refreshOne(p.path, { force: true });
+            await rereadIfNewer(onDisk);
             return;
           }
           this.attempts.set(p.path, now);
-          const r = await meta.fetchInBackground(p.path, { quietFailure: true });
-          if (r.outcome === 'ok') fetched++;
-          else if (r.outcome === 'skipped' || r.outcome === 'concurrent') skipped++; // concurrent: someone else is fetching it right now
-          else failures.push({ path: p.path, message: r.message });
+          let recheckedDisk: number | null = onDisk;
+          const r = await meta.fetchInBackground(p.path, {
+            quietFailure: true,
+            // Inside the limiter slot, right before git starts: the time we planned on may be minutes old by now.
+            recheck: async () => {
+              recheckedDisk = await host.gitLastFetch(folder).catch(() => null);
+              return due(known(recheckedDisk));
+            },
+          });
+          if (r.outcome === 'ok') {
+            fetched++;
+          } else if (r.outcome === 'skipped' || r.outcome === 'concurrent') {
+            // skipped: already refreshing, or fetched elsewhere while we waited. concurrent: someone else is fetching it right now.
+            skipped++;
+            if (r.outcome === 'skipped') await rereadIfNewer(recheckedDisk);
+          } else {
+            failures.push({ path: p.path, message: r.message });
+          }
         }),
       );
       const offline = failures.length >= 2 && fetched === 0;

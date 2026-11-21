@@ -280,3 +280,25 @@ test('a fetch that collided with another process is not a failure and not offlin
   meta.recordFetch('/r/a', { ok: false, message: 'fatal: nope' });
   assert.equal(meta.get('/r/a')?.git?.fetchError, 'fatal: nope');
 });
+
+test('scheduler: re-reads the on-disk time inside the limiter slot, right before git starts', async () => {
+  const names = ['/r/a', '/r/b', '/r/c', '/r/d', '/r/e'];
+  const { host, meta, fetcher } = setup(Object.fromEntries(names.map((n) => [n, {}])));
+  await meta.refresh(names, { force: true });
+  host.holdFetches = { waiting: [] }; // the network limiter has 4 slots, so one repo waits for a free one
+  const cycle = fetcher.runCycle();
+  await new Promise((r) => setTimeout(r, 50));
+  assert.equal(host.calls.background.length, 4);
+  const waiting = names.find((p) => !host.calls.background.includes(p))!;
+  // While it waits for a slot, another window (or the CLI) fetches it.
+  host.repos.get(waiting)!.lastFetch = Date.now();
+  const held = host.holdFetches.waiting;
+  host.holdFetches = undefined;
+  for (const release of held) release();
+  const r = await cycle;
+  assert.equal(host.calls.background.length, 4, 'the waiting repo was not fetched a second time');
+  assert.ok(!host.calls.background.includes(waiting));
+  assert.equal(r?.fetched, 4);
+  assert.equal(r?.skipped, 1);
+  assert.ok((meta.get(waiting)?.git?.lastFetchAt ?? 0) > Date.now() - 5000, 'its status was re-read, so the tile shows the new time');
+});

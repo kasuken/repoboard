@@ -215,13 +215,22 @@ export class MetadataService extends Emitter<MetadataEvents> {
    * and clears `fetchError`; a failure is recorded unless `quietFailure`. 'skipped' = the repo is already being refreshed;
    * 'concurrent' = another process holds git's locks for this repo (it is being fetched elsewhere): neither a failure nor offline.
    */
-  async fetchInBackground(projectPath: string, options: { quietFailure?: boolean } = {}): Promise<{ outcome: 'ok' | 'failed' | 'skipped' | 'concurrent'; message: string }> {
+  async fetchInBackground(
+    projectPath: string,
+    options: { quietFailure?: boolean; recheck?: () => Promise<boolean> } = {},
+  ): Promise<{ outcome: 'ok' | 'failed' | 'skipped' | 'concurrent'; message: string }> {
     const key = pathKey(projectPath);
     if (this.inFlight.has(key)) return { outcome: 'skipped', message: '' };
-    let result: { outcome: 'ok' | 'failed' | 'concurrent'; message: string } = { outcome: 'failed', message: '' };
+    let result: { outcome: 'ok' | 'failed' | 'skipped' | 'concurrent'; message: string } = { outcome: 'failed', message: '' };
     const job = (async () => {
       try {
-        const fetched = await this.network.run(() => this.git.fetch(folderOf(projectPath)));
+        // `recheck` runs inside the limiter slot, right before git starts: this fetch may have queued behind others
+        // while another window or tool fetched the repo. Returning false skips it.
+        const fetched = await this.network.run(async () => ((await options.recheck?.()) === false ? null : this.git.fetch(folderOf(projectPath))));
+        if (!fetched) {
+          result = { outcome: 'skipped', message: '' };
+          return;
+        }
         const concurrent = !fetched.ok && isConcurrentFetchError(fetched.message);
         result = { outcome: fetched.ok ? 'ok' : concurrent ? 'concurrent' : 'failed', message: fetched.message };
         if (fetched.ok) {
