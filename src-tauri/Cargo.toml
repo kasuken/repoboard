@@ -1,6 +1,6 @@
 [package]
 name = "repoboard"
-version = "0.2.1"
+version = "0.3.0"
 description = "Every git repo on your machine, on one board."
 authors = ["Emanuele Bartolesi"]
 license = "MIT"
