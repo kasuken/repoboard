@@ -1,5 +1,5 @@
 import { fetchFreshness } from '../domain/freshness';
-import { changedFiles, initialsFor } from '../domain/model';
+import { changedFiles, initialsFor, worktreeChanges } from '../domain/model';
 import { fieldsOf, matchScore, sortProjects } from '../domain/search';
 import { send } from '../core/bridge';
 import { h, icon, isMacPlatform } from './dom';
@@ -97,6 +97,8 @@ export function openSwitcher(getBoard: () => BoardState | undefined): void {
       const changes = changedFiles(git);
       if (git.conflicts) status.push(h('span', { class: 'sw-badge b-conflict', title: 'Merge conflicts' }, icon('warning'), String(git.conflicts)));
       if (changes) status.push(h('span', { class: 'sw-badge b-dirty', title: `${changes} changed file(s)` }, h('span', { class: 'pip' }), String(changes)));
+      const wtChanges = worktreeChanges(git);
+      if (wtChanges) status.push(h('span', { class: 'sw-badge b-dirty', title: `${wtChanges} uncommitted change${wtChanges === 1 ? '' : 's'} in linked worktrees` }, h('span', { class: 'pip' }), `${changes ? '' : '+'}${wtChanges} in worktrees`));
       if (git.behind) status.push(h('span', { class: 'sw-badge b-behind', title: `${git.behind} to pull` }, icon('arrow-down'), String(git.behind)));
       if (git.ahead) status.push(h('span', { class: 'sw-badge b-ahead', title: `${git.ahead} to push` }, icon('arrow-up'), String(git.ahead)));
       if (git.stashes) status.push(h('span', { class: 'sw-badge b-stash', title: `${git.stashes} stash${git.stashes === 1 ? '' : 'es'}` }, icon('archive'), String(git.stashes)));

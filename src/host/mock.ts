@@ -162,6 +162,8 @@ const SPECS: RepoSpec[] = [
   }),
   repo('blog', {
     commit: { subject: 'Post: what I learned shipping a desktop app', secondsAgo: 2 * D },
+    // Clean main tree, unfinished edits in an agent's worktree: the case the "with changes" filter must not miss.
+    worktrees: [{ path: 'C:/Users/dev/code/worktrees/blog/agent-rss-feed', branch: 'agent/rss-feed', changes: 4 }],
     languages: langs(['Astro', 58], ['TypeScript', 24], ['CSS', 18]),
     logo: logoSvg('B', '#986ee2'),
   }),

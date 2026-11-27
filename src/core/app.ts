@@ -1,6 +1,6 @@
 import { dropNestedWorktrees, groupWorktrees, markOpened, mergeDiscovered, removeProject, togglePin } from '../domain/catalog';
 import * as C from '../domain/catalog';
-import { Project, ProjectMeta, changedFiles } from '../domain/model';
+import { Project, ProjectMeta, hasUncommittedWork } from '../domain/model';
 import { currentPlatform, setPlatform, sep } from '../domain/pathlib';
 import { displayPath, folderOf, pathKey } from '../domain/paths';
 import { EVENTS, type HostApi, type Launchers, type PlatformInfo, type TrayAction } from '../host/api';
@@ -563,7 +563,7 @@ export class App {
       log(`[${op}] ${f.project.path}\n  ${f.message.replace(/\n/g, '\n  ')}`);
     }
     const behind = this.projects.projects.filter((p) => (this.meta.get(p.path)?.git?.behind ?? 0) > 0).length;
-    const dirty = this.projects.projects.filter((p) => changedFiles(this.meta.get(p.path)?.git) > 0).length;
+    const dirty = this.projects.projects.filter((p) => hasUncommittedWork(this.meta.get(p.path)?.git)).length;
     const summary =
       op === 'fetch'
         ? `Fetched ${candidates.length - failures.length}/${candidates.length} repos. ${behind} behind, ${dirty} with local changes.`
