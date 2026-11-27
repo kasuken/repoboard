@@ -40,6 +40,10 @@ interface RepoSpec {
   stashes: Array<{ message: string; secondsAgo: number }>;
   commit: { subject: string; secondsAgo: number };
   remote: string | undefined;
+  /** Commits on the current branch that were never pushed (use with upstream: undefined). */
+  unpushed?: number;
+  /** Other local branches: `unpushed` = never pushed, `ahead` = ahead of its upstream. */
+  otherBranches?: Array<{ name: string; kind: 'unpushed' | 'ahead'; count: number }>;
   worktrees: WorktreeSpec[];
   /** Language name → bytes. */
   languages: Record<string, number>;
@@ -150,6 +154,10 @@ const SPECS: RepoSpec[] = [
     languages: langs(['TypeScript', 92], ['Shell', 8]),
   }),
   repo('rust-raytracer', {
+    // Never pushed: the feature branch has no upstream and two local commits.
+    branch: 'feature/denoise',
+    upstream: undefined,
+    unpushed: 2,
     untracked: 6,
     modified: 2,
     commit: { subject: 'Soft shadows, finally', secondsAgo: 6 * H },
@@ -157,6 +165,11 @@ const SPECS: RepoSpec[] = [
   }),
   repo('habit-tracker-ios', {
     behind: 1,
+    // Work on other branches that no remote has.
+    otherBranches: [
+      { name: 'experiment/watch-app', kind: 'unpushed', count: 3 },
+      { name: 'fix/widget-crash', kind: 'ahead', count: 1 },
+    ],
     commit: { subject: 'Lock-screen widget', secondsAgo: 9 * D },
     languages: langs(['Swift', 100]),
   }),
@@ -234,18 +247,45 @@ function worktreeList(s: RepoSpec): string {
   return blocks.join('\n');
 }
 
+/** `for-each-ref` and `log --branches --not --remotes` output for a spec, as git prints them. */
+function branchReads(s: RepoSpec): { branches: string; unpushedLog: string } {
+  const unit = String.fromCharCode(0x1f);
+  const track = [s.ahead ? `ahead ${s.ahead}` : '', s.behind ? `behind ${s.behind}` : ''].filter(Boolean).join(', ');
+  const branchLines = [`${s.branch}${unit}${s.upstream ?? ''}${unit}${s.upstream ? track : ''}`];
+  const logLines: string[] = [];
+  const chain = (name: string, count: number, head: boolean) => {
+    const hashes = Array.from({ length: count }, (_, i) => fakeHash(`${s.path}${name}${i}`));
+    hashes.forEach((h, i) => {
+      const parent = hashes[i + 1] ?? fakeHash(`${s.path}base`);
+      logLines.push(`${h}${unit}${parent}${unit}${i === 0 ? (head ? `HEAD -> ${name}` : name) : ''}`);
+    });
+  };
+  if (!s.upstream && s.unpushed) chain(s.branch, s.unpushed, true);
+  for (const b of s.otherBranches ?? []) {
+    if (b.kind === 'ahead') branchLines.push(`${b.name}${unit}origin/${b.name}${unit}ahead ${b.count}`);
+    else {
+      branchLines.push(`${b.name}${unit}${unit}`);
+      chain(b.name, b.count, false);
+    }
+  }
+  return { branches: branchLines.join('\n') + '\n', unpushedLog: logLines.map((l) => l + '\n').join('') };
+}
+
 function gitStatusRaw(folder: string): GitStatusRaw {
   const s = specOf(folder);
   const none = fail('fatal: not a git repository (or any of the parent directories): .git');
-  if (!s || s.noGit || s.availability !== 'ok') return { status: none, log: none, stash: none, remotes: none };
+  if (!s || s.noGit || s.availability !== 'ok') return { status: none, log: none, stash: none, remotes: none, branches: none, unpushedLog: none };
   if (s.gitError) {
     const err = fail(s.gitError);
-    return { status: err, log: err, stash: err, remotes: err };
+    return { status: err, log: err, stash: err, remotes: err, branches: err, unpushedLog: err };
   }
   const c = s.commit;
   const unit = String.fromCharCode(0x1f);
   const when = Math.round(Date.now() / 1000 - c.secondsAgo);
+  const reads = branchReads(s);
   return {
+    branches: ok(reads.branches),
+    unpushedLog: ok(reads.unpushedLog),
     status: ok(porcelain(s, true)),
     log: ok(`${fakeHash(c.subject, 7)}${unit}${c.subject}${unit}You${unit}${when}\n`),
     stash: ok(s.stashes.map((e, i) => `stash@{${i}}${unit}${Math.round(Date.now() / 1000 - e.secondsAgo)}${unit}${e.message}\n`).join('')),

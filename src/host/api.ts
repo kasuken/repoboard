@@ -42,17 +42,23 @@ export interface GitRun {
 }
 
 /**
- * The four reads `git_status` runs in parallel in `folder`, all with READ_FLAGS:
+ * The six reads `git_status` runs in parallel in `folder`, all with READ_FLAGS:
  *   status:  status --porcelain=v2 --branch
  *   log:     log -1 --format=%h%x1f%s%x1f%an%x1f%ct
  *   stash:   stash list --format=%gd%x1f%ct%x1f%gs   (one line per entry; empty when none)
  *   remotes: remote -v
+ *   branches: for-each-ref --format=%(refname:short)%1f%(upstream:short)%1f%(upstream:track,nobracket) refs/heads
+ *             (one line per local branch; fields: name, upstream, "ahead 2, behind 1" / "gone" / empty)
+ *   unpushedLog: log --branches --not --remotes --format=%H%x1f%P%x1f%D -n 500
+ *             (every commit on a local branch that no remote-tracking ref contains: hash, parents, decorations)
  */
 export interface GitStatusRaw {
   status: GitRun;
   log: GitRun;
   stash: GitRun;
   remotes: GitRun;
+  branches: GitRun;
+  unpushedLog: GitRun;
 }
 
 export type RemoteOp = 'fetch' | 'pull' | 'push';

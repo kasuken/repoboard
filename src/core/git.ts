@@ -1,4 +1,4 @@
-import { describeGitError, parseLogLine, parsePorcelainV2, parseStashList, parseWorktreeList, pickRemoteUrl, remoteToWebUrl, worktreeMainFromGitFile } from '../domain/gitParse';
+import { describeGitError, parseBranchList, parseUnpushedLog, unpushedSummary, parseLogLine, parsePorcelainV2, parseStashList, parseWorktreeList, pickRemoteUrl, remoteToWebUrl, worktreeMainFromGitFile } from '../domain/gitParse';
 import type { GitStatus, WorktreeInfo } from '../domain/model';
 import { pathApi } from '../domain/pathlib';
 import type { HostApi, RemoteOp } from '../host/api';
@@ -43,7 +43,7 @@ export class GitClient {
     if (this.gitMissing || !(await isRepo(this.host, folder))) {
       return null;
     }
-    const [{ status: st, log, stash, remotes }, lastFetch] = await Promise.all([this.host.gitStatus(folder), Promise.allSettled([this.host.gitLastFetch(folder)]).then((r) => r[0]!)]);
+    const [{ status: st, log, stash, remotes, branches, unpushedLog }, lastFetch] = await Promise.all([this.host.gitStatus(folder), Promise.allSettled([this.host.gitLastFetch(folder)]).then((r) => r[0]!)]);
     if (st.missingGit) {
       this.gitMissing = true;
       return null;
@@ -83,11 +83,28 @@ export class GitClient {
     if (webUrl) {
       status.webUrl = webUrl;
     }
+    if (remotes.ok) {
+      status.hasRemote = remotes.stdout.trim().length > 0;
+    }
+    // Work no remote has: the current branch when it has no live upstream, and (on the main repo) other local branches.
+    const unpushedParsed = branches.ok && unpushedLog.ok && status.hasRemote ? parseUnpushedLog(unpushedLog.stdout) : undefined;
+    const summary = unpushedParsed
+      ? unpushedSummary({ branches: parseBranchList(branches.stdout), unpushed: unpushedParsed, currentBranch: parsed.detached ? undefined : parsed.branch, hasRemote: true })
+      : undefined;
+    if (summary?.current) {
+      status.unpushed = summary.current;
+      if (unpushedParsed?.capped) {
+        status.unpushedCapped = true;
+      }
+    }
     const main = await worktreeMainOf(this.host, folder);
     if (main) {
       // refs/stash is shared with the main repo, which shows it; repeating it on every worktree tile is noise.
       status.worktreeOf = main;
     } else {
+      if (summary?.others.length) {
+        status.branchesToPush = summary.others;
+      }
       status.stashes = stashList.length;
       if (stashList.length) status.stashList = stashList.slice(0, 50);
       const worktrees = await this.worktrees(folder);

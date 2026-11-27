@@ -55,6 +55,8 @@ pub struct GitStatusRaw {
     pub log: GitRun,
     pub stash: GitRun,
     pub remotes: GitRun,
+    pub branches: GitRun,
+    pub unpushed_log: GitRun,
 }
 
 /// Runs `git <args>` in `cwd`. A missing cwd is reported as a failure, not as "git not found".
@@ -87,10 +89,14 @@ pub fn status(folder: &Path) -> GitStatusRaw {
         let log = s.spawn(|| read(folder, &["log", "-1", "--format=%h%x1f%s%x1f%an%x1f%ct"]));
         let stash = s.spawn(|| read(folder, &["stash", "list", "--format=%gd%x1f%ct%x1f%gs"]));
         let remotes = s.spawn(|| read(folder, &["remote", "-v"]));
+        let branches = s.spawn(|| {
+            read(folder, &["for-each-ref", "--format=%(refname:short)%1f%(upstream:short)%1f%(upstream:track,nobracket)", "refs/heads"])
+        });
+        let unpushed_log = s.spawn(|| read(folder, &["log", "--branches", "--not", "--remotes", "--format=%H%x1f%P%x1f%D", "-n", "500"]));
         let join = |h: thread::ScopedJoinHandle<'_, GitRun>| {
             h.join().unwrap_or(GitRun { ok: false, stdout: String::new(), stderr: "internal error".into(), missing_git: false })
         };
-        GitStatusRaw { status: join(st), log: join(log), stash: join(stash), remotes: join(remotes) }
+        GitStatusRaw { status: join(st), log: join(log), stash: join(stash), remotes: join(remotes), branches: join(branches), unpushed_log: join(unpushed_log) }
     })
 }
 
@@ -189,6 +195,21 @@ mod tests {
         // No stash: empty output.
         assert!(r.stash.ok && r.stash.stdout.trim().is_empty());
         assert!(r.remotes.ok);
+        // No remote: every commit is on a local branch no remote has.
+        assert!(r.branches.ok, "{}", r.branches.stderr);
+        assert!(r.branches.stdout.contains('\u{1f}'));
+        assert!(r.unpushed_log.ok, "{}", r.unpushed_log.stderr);
+        let first = r.unpushed_log.stdout.lines().next().unwrap_or("");
+        assert!(first.split('\u{1f}').count() == 3 && first.contains("HEAD ->"), "{first:?}");
+        // A second local branch with its own commit shows up as a decorated tip.
+        assert!(ok(&["checkout", "-q", "-b", "other-local"]));
+        t.file("c.txt", b"other");
+        assert!(ok(&["add", "c.txt"]));
+        assert!(ok(&["-c", "user.name=T", "-c", "user.email=t@t.t", "commit", "-q", "-m", "second"]));
+        let r2 = status(&t.0);
+        assert!(r2.branches.stdout.lines().filter(|l| !l.is_empty()).count() == 2, "{:?}", r2.branches.stdout);
+        assert!(r2.unpushed_log.stdout.contains("other-local"), "{:?}", r2.unpushed_log.stdout);
+        assert!(ok(&["checkout", "-q", "-"]));
         assert!(worktree_list(&t.0).ok);
         assert!(short_status(&t.0).ok);
         // One stash: a single well-formed `ref US time US message` line.

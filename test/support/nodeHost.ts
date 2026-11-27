@@ -30,13 +30,15 @@ export function createNodeHost(): HostApi {
   return {
     platformInfo: unsupported('platformInfo'),
     async gitStatus(folder) {
-      const [status, log, stash, remotes] = await Promise.all([
+      const [status, log, stash, remotes, branches, unpushedLog] = await Promise.all([
         read(folder, 'status', '--porcelain=v2', '--branch'),
         read(folder, 'log', '-1', `--format=${LOG_FORMAT}`),
         read(folder, 'stash', 'list', '--format=%gd%x1f%ct%x1f%gs'),
         read(folder, 'remote', '-v'),
+        read(folder, 'for-each-ref', '--format=%(refname:short)%1f%(upstream:short)%1f%(upstream:track,nobracket)', 'refs/heads'),
+        read(folder, 'log', '--branches', '--not', '--remotes', '--format=%H%x1f%P%x1f%D', '-n', '500'),
       ]);
-      return { status, log, stash, remotes };
+      return { status, log, stash, remotes, branches, unpushedLog };
     },
     gitWorktreeList: (folder) => read(folder, 'worktree', 'list', '--porcelain'),
     gitShortStatus: (folder) => read(folder, 'status', '--porcelain=v2'),

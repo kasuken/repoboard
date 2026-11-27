@@ -1,3 +1,4 @@
+import { branchToPushLabel } from '../domain/gitParse';
 import { fetchFreshness } from '../domain/freshness';
 import { changedFiles, initialsFor, worktreeChanges } from '../domain/model';
 import { fieldsOf, matchScore, sortProjects } from '../domain/search';
@@ -101,6 +102,8 @@ export function openSwitcher(getBoard: () => BoardState | undefined): void {
       if (wtChanges) status.push(h('span', { class: 'sw-badge b-dirty', title: `${wtChanges} uncommitted change${wtChanges === 1 ? '' : 's'} in linked worktrees` }, h('span', { class: 'pip' }), `${changes ? '' : '+'}${wtChanges} in worktrees`));
       if (git.behind) status.push(h('span', { class: 'sw-badge b-behind', title: `${git.behind} to pull` }, icon('arrow-down'), String(git.behind)));
       if (git.ahead) status.push(h('span', { class: 'sw-badge b-ahead', title: `${git.ahead} to push` }, icon('arrow-up'), String(git.ahead)));
+      if (git.unpushed) status.push(h('span', { class: 'sw-badge b-ahead', title: `${git.unpushed}${git.unpushedCapped ? ' or more' : ''} commit${git.unpushed === 1 && !git.unpushedCapped ? '' : 's'} on ${git.branch} not on any remote` }, icon('arrow-up'), `${git.unpushed}${git.unpushedCapped ? '+' : ''} not pushed`));
+      if (git.branchesToPush?.length) status.push(h('span', { class: 'sw-badge b-ahead', title: git.branchesToPush.map(branchToPushLabel).join('; ') }, icon('git-branch'), `${git.branchesToPush.length} branch${git.branchesToPush.length === 1 ? '' : 'es'} to push`));
       if (git.stashes) status.push(h('span', { class: 'sw-badge b-stash', title: `${git.stashes} stash${git.stashes === 1 ? '' : 'es'}` }, icon('archive'), String(git.stashes)));
       if (git.worktrees?.length) status.push(h('span', { class: 'sw-badge', title: 'Linked worktrees' }, icon('repo-forked'), String(git.worktrees.length)));
       // Before you pick a repo to start work in: are its ahead/behind numbers trustworthy?
