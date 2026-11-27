@@ -313,7 +313,7 @@ function seedCatalog(): string {
     ],
     projects: [
       project('storefront', 'storefront', { pinned: true, icon: '🛍️', description: 'Customer-facing web shop, Next.js on the edge', tags: ['acme', 'web'], collectionId: 'acme', lastOpenedAt: ago(1 * H), source: 'manual' }),
-      project('design', 'design-system', { pinned: true, icon: '🎨', description: 'Tokens, components and docs shared by every app', tags: ['web', 'oss'], collectionId: 'oss', lastOpenedAt: ago(4 * H) }),
+      project('design', 'design-system', { pinned: true, icon: '🎨', description: 'Tokens, components and docs shared by every app', tags: ['web', 'oss'], collectionId: 'oss', lastOpenedAt: ago(21 * D) }),
       project('payments', 'payments-api', { description: 'Payment orchestration service, .NET 10', tags: ['acme', 'dotnet'], collectionId: 'acme', lastOpenedAt: ago(1 * D) }),
       project('checkout', 'checkout-web', { description: 'One-page checkout with Apple Pay and Klarna', tags: ['acme', 'web'], collectionId: 'acme', lastOpenedAt: ago(2 * D) }),
       project('infra', 'acme-infra', { icon: '☁️', description: 'Terraform and Bicep for every environment', tags: ['acme', 'infra'], collectionId: 'acme', lastOpenedAt: ago(5 * D) }),

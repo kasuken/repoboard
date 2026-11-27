@@ -204,6 +204,7 @@ export class App {
         openInNewWindow: s.openInNewWindow,
         defaultView: s.defaultView,
         defaultSort: s.defaultSort,
+        pinStaleDays: s.pinStaleDays,
         hasScanRoots: s.scanRoots.length > 0,
         isMac: this.platform.platform === 'darwin',
         platform: this.platform.platform,

@@ -33,6 +33,8 @@ export interface AppSettings {
   fetchOnOpen: boolean;
   /** Background fetch cycle: minutes between fetches of each repo (0 = off, 0-1440). Repos fetched recently by any tool are skipped. */
   fetchInterval: number;
+  /** Pinned repos not opened for this many days are marked stale (0 = off, 0-365). */
+  pinStaleDays: number;
   /** Minutes git status is reused (≥ 0). */
   cacheMinutes: number;
   detectLanguages: boolean;
@@ -74,6 +76,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   defaultSort: 'recent',
   fetchOnOpen: true,
   fetchInterval: 30,
+  pinStaleDays: 14,
   cacheMinutes: 5,
   detectLanguages: true,
   maxFilesScanned: 10000,
@@ -99,6 +102,7 @@ export interface BoardSettings {
   openInNewWindow: boolean;
   defaultView: ViewMode;
   defaultSort: SortMode;
+  pinStaleDays: number;
   hasScanRoots: boolean;
   isMac: boolean;
   platform: Platform;

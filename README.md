@@ -48,8 +48,8 @@ Repo Board replaces that with one window:
 ### The whole fleet at a glance
 
 The strip at the top has one cell per repo, coloured by its git state. The chips under it filter the board to what
-matters right now: repos **with changes**, **behind**, **ahead**, **with stashes**, **unavailable** or **not fetched
-recently**. Sort by *most changes* and the
+matters right now: repos **with changes** (including edits in their worktrees), **behind**, **to push**, **with stashes**,
+**unavailable** or **not fetched recently**. Sort by *most changes* and the
 repos that need you come first.
 
 ![Repos with uncommitted changes, sorted by most changes](images/attention.png)
@@ -83,6 +83,13 @@ recently. If a fetch fails, for example because a token expired, the tile says *
 quietly showing old numbers. When the network is down, the board shows one *Offline* note instead of an error on every
 repo.
 
+### Nothing left unpushed
+
+**To push** finds every repo with commits that only exist on this machine. A branch that is ahead of its upstream shows
+how many commits to push. A branch that was never pushed says *3 not pushed* instead of a vague "local only", and a
+repo with no remote at all says *no remote*. Other local branches with unpushed commits get a *2 branches to push*
+badge; click it to see which branches and how many commits each.
+
 ### Stashes don't get lost
 
 Stashes never show up as changed files, so a repo whose only unsaved work is a stash looks clean. Repo Board shows a
@@ -101,7 +108,8 @@ removed, even if they are still on disk.
 
 Linked `git worktree` folders, such as the ones coding agents create for each task, don't crowd the board.
 They appear as a badge on their main repo's tile. The badge turns yellow when one of them has uncommitted
-work. Click it to see each worktree's branch and change count, then open it, open a terminal there or reveal
+work, and that repo counts as having changes: it shows up under **with changes** and in *most changes*, even when
+the main checkout itself is clean. Click it to see each worktree's branch and change count, then open it, open a terminal there or reveal
 it. Prefer every worktree as a project of its own? Switch **Worktrees** to *separate* in Settings.
 
 ![A repo tile with its worktrees listed](images/worktrees.png)
@@ -126,6 +134,10 @@ languages and collections. Start a word with `#` to filter by tag, and combine t
 Pin favourites to the top. Group repos into coloured **collections**. Add **tags**, an emoji or short icon, and a
 description. Sort by last opened, name, last commit or most changes, or pick *My order* and drag tiles and collections
 wherever you want them. Switch between the grid and a dense list.
+
+Pins go stale as your focus moves. A pinned repo you haven't opened for two weeks says *not opened in 3 weeks*
+with an **Unpin** button, and the Pinned header offers to unpin all of them at once. Change the number of days in
+Settings, or set it to 0 to turn this off.
 
 ![Edit a project: name, description, icon, collection, colour and tags](images/edit.png)
 
@@ -208,6 +220,7 @@ Everything is configured in the app (**⋯ › Settings**, or <kbd>Ctrl</kbd>+<k
 | Global shortcut | <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> | Brings the app forward with the switcher open; empty turns it off |
 | Default view / sort | grid / recent | How the board starts |
 | Fetch at start-up | on | `git fetch` when the app starts and when you refresh the board, skipping repos fetched in the last 10 minutes |
+| Stale pins | 14 days | Pinned repos not opened for this long are marked so you can unpin them; 0 turns it off |
 | Background fetch | every 30 minutes | Keeps ahead/behind current; repos fetched recently by any tool are skipped; 0 turns it off |
 | Cache minutes | `5` | How long git status is reused before it is read again |
 | Language bar | on | Bounded file scan per project, capped at *Max files scanned* (10 000) |

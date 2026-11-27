@@ -1,6 +1,6 @@
 import { branchToPushLabel } from '../domain/gitParse';
 import { fetchFreshness } from '../domain/freshness';
-import { changedFiles, initialsFor, worktreeChanges } from '../domain/model';
+import { changedFiles, idlePhrase, initialsFor, pinStaleness, worktreeChanges } from '../domain/model';
 import { fieldsOf, matchScore, sortProjects } from '../domain/search';
 import { send } from '../core/bridge';
 import { h, icon, isMacPlatform } from './dom';
@@ -114,6 +114,8 @@ export function openSwitcher(getBoard: () => BoardState | undefined): void {
     }
     if (meta?.availability === 'missing') status.push(h('span', { class: 'sw-badge b-missing' }, icon('warning'), 'folder missing'));
     if (meta?.availability === 'offline') status.push(h('span', { class: 'sw-badge b-missing' }, icon('debug-disconnect'), 'drive not connected'));
+    const stale = pinStaleness(p, board.settings.pinStaleDays);
+    if (stale.stale) status.push(h('span', { class: 'sw-badge', title: 'Pinned, but not opened for a while' }, icon('history'), idlePhrase(stale.idleMs)));
     const coll = board.collections.find((c) => c.id === p.collectionId);
     if (coll) status.push(h('span', { class: 'sw-badge' }, icon('folder-library'), coll.name));
     for (const t of p.tags.slice(0, 3)) status.push(h('span', { class: 'sw-tag', text: `#${t}` }));

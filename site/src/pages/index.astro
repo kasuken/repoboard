@@ -116,13 +116,18 @@ Unmerged paths: 2 files
           <h3 class="h3">Filter to what needs you right now.</h3>
           <div class="prose">
             <p>
-              Click <strong>with changes</strong>, <strong>behind</strong>, <strong>ahead</strong>,
+              Click <strong>with changes</strong>, <strong>behind</strong>, <strong>to push</strong>,
               <strong>with stashes</strong>, <strong>unavailable</strong> or <strong>not fetched recently</strong> and the
               board narrows down. Sort by most changes and the repos that need you come first.
             </p>
             <p>
               Stashes never show up as changed files, so they get their own badge: click it to see each stash with its
               branch, message and age.
+            </p>
+            <p>
+              <strong>To push</strong> also catches branches you never pushed and other local branches with commits that
+              only exist on your machine, and edits an agent left in a worktree count as changes even when the main
+              checkout is clean.
             </p>
             <p>
               Status comes from a single <code>git status --porcelain=v2</code> per repo, and the board shows instantly

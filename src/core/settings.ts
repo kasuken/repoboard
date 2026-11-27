@@ -44,6 +44,7 @@ export function sanitizeSettings(raw: unknown): AppSettings {
     defaultSort: oneOf(r['defaultSort'], SORT_MODES, d.defaultSort),
     fetchOnOpen: bool(r['fetchOnOpen'], d.fetchOnOpen),
     fetchInterval: num(r['fetchInterval'], d.fetchInterval, 0, 1440),
+    pinStaleDays: num(r['pinStaleDays'], d.pinStaleDays, 0, 365),
     cacheMinutes: num(r['cacheMinutes'], d.cacheMinutes, 0),
     detectLanguages: bool(r['detectLanguages'], d.detectLanguages),
     maxFilesScanned: num(r['maxFilesScanned'], d.maxFilesScanned, 100),
